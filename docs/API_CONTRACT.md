@@ -67,6 +67,8 @@ La creación de usuarios y la administración de la carta pertenecen al backend.
 
 `waiter_id: null` significa sin asignación. `occupied` indica atención activa y `total_cents` suma sus pedidos no anulados. El cierre conserva la asignación al mozo, pone la mesa disponible y conserva el historial. No registra pagos.
 
+Si todos los pedidos se anulan, la atención sigue abierta con total cero hasta que el mozo cierre la mesa. La anulación por sí sola no debe liberar ni permitir transferir la mesa.
+
 La asignación es por turno; Laravel determina el turno actual. Debe ser atómica: una mesa no puede pertenecer a dos mozos. Rechazar con 409 si hay un conflicto concurrente. Impedir quitar o transferir mesas con atención activa. El frontend también impide quitar mesas con borradores locales.
 
 ### Producto
@@ -128,7 +130,7 @@ Cada pedido adicional es un pedido nuevo asociado a la atención activa de la me
 2. Ante una respuesta perdida, desconexión, 409 o 5xx, conserva la misma clave y el mismo cuerpo, incluso tras reiniciar o cerrar sesión.
 3. Laravel debe guardar y resolver la clave **en la misma transacción que el pedido**, con restricción única por usuario y clave. Una repetición debe devolver el mismo pedido, aunque ya se entregó o cerró su mesa. Consultar primero el recibo de idempotencia antes de validar el estado actual de esa mesa.
 4. Si la misma clave llega con otro cuerpo, responder 409 sin crear otro pedido. No caducar el recibo mientras pueda existir un reintento del cliente; conservarlo junto al pedido archivado.
-5. HTTP 400, 401, 403, 404 y 422 se consideran rechazo definitivo **sin pedido creado**: la app desbloquea el borrador y genera una nueva clave para corregirlo. Nunca devolver esos estados después de confirmar el pedido.
+5. HTTP 400, 401, 403, 404 y 422 se consideran rechazo definitivo **sin pedido creado**: la app desbloquea el borrador y genera una nueva clave para corregirlo. Nunca devolver esos estados después de confirmar el pedido. Excepción: si un envío ya estaba pendiente y el reintento recibe 401, la app conserva su clave y contenido hasta volver a iniciar sesión; esa respuesta de autenticación no permite saber si el primer envío se guardó.
 6. El backend debe aplicar también operaciones idempotentes a entrega, anulación y cierre. El cierre incluye `order_ids`: todos los pedidos de la atención que el mozo está viendo, incluidos los anulados. En una transacción, comprobar que coinciden exactamente con la atención activa y cerrar solo ese conjunto. Si ya están cerrados, devolver éxito sin afectar una atención posterior; si se agregó otro pedido o cambió la atención, responder 409 y exigir actualizar. No cerrar la mesa actual ignorando esos IDs.
 
 ## Estados y autorización

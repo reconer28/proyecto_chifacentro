@@ -10,52 +10,60 @@ import 'widgets.dart';
 class MenuScreen extends StatefulWidget {
   const MenuScreen({
     super.key,
-    required this.controller,
-    required this.tableId,
+    required this.controlador,
+    required this.idMesa,
   });
-  final AppController controller;
-  final String tableId;
+  final AppController controlador;
+  final String idMesa;
   @override
   State<MenuScreen> createState() => _MenuScreenState();
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  final _search = TextEditingController();
-  String _category = 'Todos';
+  final _busqueda = TextEditingController();
+  String _categoria = 'Todos';
   @override
   void dispose() {
-    _search.dispose();
+    _busqueda.dispose();
     super.dispose();
   }
 
-  String _normalize(String s) {
-    var value = s.toLowerCase();
-    const accented = 'áéíóúüñ';
-    const plain = 'aeiouun';
-    for (var i = 0; i < accented.length; i++) {
-      value = value.replaceAll(accented[i], plain[i]);
+  String _normalizar(String textoOriginal) {
+    var valor = textoOriginal.toLowerCase();
+    const acentuadas = 'áéíóúüñ';
+    const sinAcentos = 'aeiouun';
+    for (var indice = 0; indice < acentuadas.length; indice++) {
+      valor = valor.replaceAll(acentuadas[indice], sinAcentos[indice]);
     }
-    return value;
+    return valor;
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.controller,
-    builder: (context, _) {
-      final c = widget.controller;
-      final table = c.tables.where((t) => t.id == widget.tableId).firstOrNull;
-      final own = table?.waiterId == c.user?.id;
-      final draft = c.draftFor(widget.tableId);
-      final categories = [
+  Widget build(BuildContext contexto) => AnimatedBuilder(
+    animation: widget.controlador,
+    builder: (contexto, _) {
+      final estadoAplicacion = widget.controlador;
+      final mesa = estadoAplicacion.mesas
+          .where((mesaActual) => mesaActual.id == widget.idMesa)
+          .firstOrNull;
+      final esPropia =
+          estadoAplicacion.usuario != null &&
+          mesa?.idMozo == estadoAplicacion.usuario!.id;
+      final borrador = estadoAplicacion.borradorDeMesa(widget.idMesa);
+      final categorias = [
         'Todos',
-        ...c.products.map((p) => p.category).toSet(),
+        ...estadoAplicacion.productos
+            .map((productoActual) => productoActual.categoria)
+            .toSet(),
       ];
-      final visible = c.products
+      final productosVisibles = estadoAplicacion.productos
           .where(
-            (p) =>
-                (_category == 'Todos' || p.category == _category) &&
-                _normalize('${p.name} ${p.description}')
-                    .contains(_normalize(_search.text.trim())),
+            (productoActual) =>
+                (_categoria == 'Todos' ||
+                    productoActual.categoria == _categoria) &&
+                _normalizar(
+                  '${productoActual.nombre} ${productoActual.descripcion}',
+                ).contains(_normalizar(_busqueda.text.trim())),
           )
           .toList();
       return DefaultTabController(
@@ -66,24 +74,26 @@ class _MenuScreenState extends State<MenuScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mesa ${table?.number.toString().padLeft(2, '0') ?? '—'}',
+                  'Mesa ${mesa?.numero.toString().padLeft(2, '0') ?? '—'}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 21,
                   ),
                 ),
                 Text(
-                  table?.zone ?? 'Mesa no disponible',
+                  mesa?.zona ?? 'Mesa no disponible',
                   style: const TextStyle(
                     fontSize: 11,
-                    color: ChifaColors.muted,
+                    color: ChifaColors.tenue,
                   ),
                 ),
               ],
             ),
             actions: [
               IconButton(
-                onPressed: c.busy ? null : c.refresh,
+                onPressed: estadoAplicacion.procesando
+                    ? null
+                    : estadoAplicacion.actualizarDatos,
                 tooltip: 'Actualizar carta y pedidos',
                 icon: const Icon(Icons.sync_rounded),
               ),
@@ -102,15 +112,19 @@ class _MenuScreenState extends State<MenuScreen> {
                 constraints: const BoxConstraints(maxWidth: 740),
                 child: Column(
                   children: [
-                    if (c.busy) const LinearProgressIndicator(minHeight: 2),
-                    if (c.error != null)
+                    if (estadoAplicacion.procesando)
+                      const LinearProgressIndicator(minHeight: 2),
+                    if (estadoAplicacion.error != null)
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxHeight: 145),
                         child: SingleChildScrollView(
-                          child: ErrorNotice(c.error!, onDismiss: c.clearError),
+                          child: ErrorNotice(
+                            estadoAplicacion.error!,
+                            alCerrar: estadoAplicacion.limpiarError,
+                          ),
                         ),
                       ),
-                    if (!own)
+                    if (!esPropia)
                       const ErrorNotice(
                         'Esta mesa ya no está asignada a tu usuario. Vuelve al salón y actualiza.',
                       ),
@@ -132,31 +146,31 @@ class _MenuScreenState extends State<MenuScreen> {
                                   children: [
                                     const Pill(
                                       'DEL WOK A TU MESA',
-                                      color: ChifaColors.gold,
-                                      icon:
+                                      color: ChifaColors.dorado,
+                                      icono:
                                           Icons.local_fire_department_outlined,
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
                                       '¿Qué van a disfrutar?',
-                                      style: Theme.of(context)
+                                      style: Theme.of(contexto)
                                           .textTheme
                                           .headlineMedium,
                                     ),
                                     const SizedBox(height: 16),
                                     TextField(
-                                      controller: _search,
+                                      controller: _busqueda,
                                       onChanged: (_) => setState(() {}),
                                       decoration: InputDecoration(
                                         hintText: 'Buscar un plato o bebida',
                                         prefixIcon: const Icon(
                                           Icons.search_rounded,
                                         ),
-                                        suffixIcon: _search.text.isEmpty
+                                        suffixIcon: _busqueda.text.isEmpty
                                             ? null
                                             : IconButton(
                                                 onPressed: () => setState(
-                                                  () => _search.clear(),
+                                                  () => _busqueda.clear(),
                                                 ),
                                                 icon: const Icon(
                                                   Icons.close_rounded,
@@ -175,28 +189,32 @@ class _MenuScreenState extends State<MenuScreen> {
                                   horizontal: 22,
                                 ),
                                 child: Row(
-                                  children: categories
+                                  children: categorias
                                       .map(
-                                        (cat) => Padding(
+                                        (categoriaActual) => Padding(
                                           padding: const EdgeInsets.only(
                                             right: 8,
                                           ),
                                           child: ChoiceChip(
-                                            label: Text(cat),
+                                            label: Text(categoriaActual),
                                             showCheckmark: false,
-                                            selected: cat == _category,
-                                            onSelected: (_) =>
-                                                setState(() => _category = cat),
-                                            selectedColor: ChifaColors.red,
+                                            selected:
+                                                categoriaActual == _categoria,
+                                            onSelected: (_) => setState(
+                                              () =>
+                                                  _categoria = categoriaActual,
+                                            ),
+                                            selectedColor: ChifaColors.rojo,
                                             backgroundColor: Colors.white,
                                             side: const BorderSide(
                                               color: Color(0xFFE7E0D6),
                                             ),
                                             labelStyle: TextStyle(
                                               fontSize: 12,
-                                              color: cat == _category
+                                              color:
+                                                  categoriaActual == _categoria
                                                   ? Colors.white
-                                                  : ChifaColors.muted,
+                                                  : ChifaColors.tenue,
                                             ),
                                           ),
                                         ),
@@ -212,20 +230,20 @@ class _MenuScreenState extends State<MenuScreen> {
                                   10,
                                 ),
                                 child: Text(
-                                  '${visible.length} opciones para compartir',
+                                  '${productosVisibles.length} opciones para compartir',
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: ChifaColors.muted,
+                                    color: ChifaColors.tenue,
                                   ),
                                 ),
                               ),
                               Expanded(
-                                child: visible.isEmpty
+                                child: productosVisibles.isEmpty
                                     ? const SingleChildScrollView(
                                         child: EmptyState(
-                                          icon: Icons.search_off_rounded,
-                                          title: 'No encontramos ese sabor',
-                                          message: 'Prueba con otro nombre o categoría.',
+                                          icono: Icons.search_off_rounded,
+                                          titulo: 'No encontramos ese sabor',
+                                          mensaje: 'Prueba con otro nombre o categoría.',
                                         ),
                                       )
                                     : ListView.separated(
@@ -235,34 +253,42 @@ class _MenuScreenState extends State<MenuScreen> {
                                           22,
                                           22,
                                         ),
-                                        itemCount: visible.length,
+                                        itemCount: productosVisibles.length,
                                         separatorBuilder: (_, _) =>
                                             const SizedBox(height: 12),
-                                        itemBuilder: (context, i) {
-                                          final p = visible[i];
-                                          final quantity =
-                                              draft?.lines
+                                        itemBuilder: (contexto, indice) {
+                                          final productoActual =
+                                              productosVisibles[indice];
+                                          final cantidad =
+                                              borrador?.detalles
                                                   .where(
-                                                    (l) => l.productId == p.id,
+                                                    (detalleActual) =>
+                                                        detalleActual
+                                                            .idProducto ==
+                                                        productoActual.id,
                                                   )
                                                   .firstOrNull
-                                                  ?.quantity ??
+                                                  ?.cantidad ??
                                               0;
-                                          final editable =
-                                              own &&
-                                              !c.busy &&
-                                              !(draft?.pending ?? false);
+                                          final puedeEditar =
+                                              esPropia &&
+                                              !estadoAplicacion.procesando &&
+                                              !(borrador?.pendiente ?? false);
                                           return Paper(
-                                            padding: const EdgeInsets.all(14),
-                                            child: Row(
+                                            relleno: const EdgeInsets.all(14),
+                                            contenido: Row(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Opacity(
-                                                  opacity: p.available ? 1 : .4,
+                                                  opacity:
+                                                      productoActual.disponible
+                                                      ? 1
+                                                      : .4,
                                                   child: DishArt(
-                                                    category: p.category,
-                                                    size: 76,
+                                                    categoria: productoActual
+                                                        .categoria,
+                                                    tamano: 76,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 12),
@@ -272,8 +298,10 @@ class _MenuScreenState extends State<MenuScreen> {
                                                         CrossAxisAlignment
                                                             .start,
                                                     children: [
-                                                      if (p.featured &&
-                                                          p.available)
+                                                      if (productoActual
+                                                              .destacado &&
+                                                          productoActual
+                                                              .disponible)
                                                         const Padding(
                                                           padding:
                                                               EdgeInsets.only(
@@ -285,7 +313,7 @@ class _MenuScreenState extends State<MenuScreen> {
                                                               fontSize: 8,
                                                               letterSpacing: .8,
                                                               color: ChifaColors
-                                                                  .gold,
+                                                                  .dorado,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w800,
@@ -293,7 +321,7 @@ class _MenuScreenState extends State<MenuScreen> {
                                                           ),
                                                         ),
                                                       Text(
-                                                        p.name,
+                                                        productoActual.nombre,
                                                         style: const TextStyle(
                                                           fontSize: 15,
                                                           fontWeight:
@@ -302,52 +330,58 @@ class _MenuScreenState extends State<MenuScreen> {
                                                       ),
                                                       const SizedBox(height: 5),
                                                       Text(
-                                                        p.description,
+                                                        productoActual
+                                                            .descripcion,
                                                         style: const TextStyle(
                                                           fontSize: 11,
                                                           height: 1.45,
                                                           color:
-                                                              ChifaColors.muted,
+                                                              ChifaColors.tenue,
                                                         ),
                                                       ),
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
                                                       Text(
-                                                        money(p.priceCents),
+                                                        formatearImporte(
+                                                          productoActual
+                                                              .precioCentimos,
+                                                        ),
                                                         style: const TextStyle(
                                                           fontSize: 15,
                                                           fontWeight:
                                                               FontWeight.w800,
                                                           color:
-                                                              ChifaColors.red,
+                                                              ChifaColors.rojo,
                                                         ),
                                                       ),
                                                       const SizedBox(height: 8),
                                                       Align(
                                                         alignment: Alignment
                                                             .centerRight,
-                                                        child: !p.available
+                                                        child:
+                                                            !productoActual
+                                                                .disponible
                                                             ? const Pill(
                                                                 'Agotado',
                                                                 color:
                                                                     ChifaColors
-                                                                        .muted,
+                                                                        .tenue,
                                                               )
-                                                            : quantity == 0
+                                                            : cantidad == 0
                                                             ? IconButton.filled(
                                                                 onPressed:
-                                                                    editable
-                                                                    ? () => c.changeLine(
+                                                                    puedeEditar
+                                                                    ? () => estadoAplicacion.modificarDetalle(
                                                                         widget
-                                                                            .tableId,
-                                                                        p,
-                                                                        delta:
+                                                                            .idMesa,
+                                                                        productoActual,
+                                                                        variacion:
                                                                             1,
                                                                       )
                                                                     : null,
                                                                 tooltip:
-                                                                    'Agregar ${p.name}',
+                                                                    'Agregar ${productoActual.nombre}',
                                                                 icon: const Icon(
                                                                   Icons
                                                                       .add_rounded,
@@ -361,24 +395,25 @@ class _MenuScreenState extends State<MenuScreen> {
                                                                 ),
                                                               )
                                                             : QuantityControl(
-                                                                quantity:
-                                                                    quantity,
-                                                                onAdd: editable
-                                                                    ? () => c.changeLine(
+                                                                cantidad:
+                                                                    cantidad,
+                                                                alAgregar:
+                                                                    puedeEditar
+                                                                    ? () => estadoAplicacion.modificarDetalle(
                                                                         widget
-                                                                            .tableId,
-                                                                        p,
-                                                                        delta:
+                                                                            .idMesa,
+                                                                        productoActual,
+                                                                        variacion:
                                                                             1,
                                                                       )
                                                                     : null,
-                                                                onRemove:
-                                                                    editable
-                                                                    ? () => c.changeLine(
+                                                                alQuitar:
+                                                                    puedeEditar
+                                                                    ? () => estadoAplicacion.modificarDetalle(
                                                                         widget
-                                                                            .tableId,
-                                                                        p,
-                                                                        delta:
+                                                                            .idMesa,
+                                                                        productoActual,
+                                                                        variacion:
                                                                             -1,
                                                                       )
                                                                     : null,
@@ -395,7 +430,10 @@ class _MenuScreenState extends State<MenuScreen> {
                               ),
                             ],
                           ),
-                          TableAccount(controller: c, tableId: widget.tableId),
+                          TableAccount(
+                            controlador: estadoAplicacion,
+                            idMesa: widget.idMesa,
+                          ),
                         ],
                       ),
                     ),
@@ -404,7 +442,7 @@ class _MenuScreenState extends State<MenuScreen> {
               ),
             ),
           ),
-          bottomNavigationBar: draft == null || draft.lines.isEmpty
+          bottomNavigationBar: borrador == null || borrador.detalles.isEmpty
               ? null
               : SafeArea(
                   top: false,
@@ -412,14 +450,14 @@ class _MenuScreenState extends State<MenuScreen> {
                     color: Colors.white,
                     padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
                     child: FilledButton(
-                      onPressed: c.busy
+                      onPressed: estadoAplicacion.procesando
                           ? null
                           : () => Navigator.push(
-                              context,
+                              contexto,
                               MaterialPageRoute<void>(
                                 builder: (_) => ReviewScreen(
-                                  controller: c,
-                                  tableId: widget.tableId,
+                                  controlador: estadoAplicacion,
+                                  idMesa: widget.idMesa,
                                 ),
                               ),
                             ),
@@ -434,17 +472,17 @@ class _MenuScreenState extends State<MenuScreen> {
                               color: Colors.white.withValues(alpha: .2),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text('${draft.quantity}'),
+                            child: Text('${borrador.cantidad}'),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              draft.pending
+                              borrador.pendiente
                                   ? 'Confirmar envío'
                                   : 'Ver mi pedido',
                             ),
                           ),
-                          Text(money(draft.totalCents)),
+                          Text(formatearImporte(borrador.totalCentimos)),
                           const SizedBox(width: 10),
                           const Icon(Icons.arrow_forward_rounded, size: 19),
                         ],

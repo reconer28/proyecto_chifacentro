@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // El complemento de Flutter se aplica después de los complementos de Android y Kotlin.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -15,24 +15,24 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // TODO: Definir el identificador único de la aplicación (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.proyecto_chifacentro"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Ajusta estos valores según los requisitos de la aplicación.
+        // Más información: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
+        // Usa la versión de pubspec.yaml. Al separar los APK por arquitectura, 1000 * ABI_VERSION
+        // se añade automáticamente por Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
+        // Puedes conservar el valor de versionCode con la opción `-P force-version-code-ignoring-abi=true`
+        // durante la compilación.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // TODO: Configurar la firma de producción para publicar la aplicación.
+            // Se usa la firma de prueba para permitir `flutter run --release` durante el desarrollo.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

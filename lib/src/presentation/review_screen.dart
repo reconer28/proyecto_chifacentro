@@ -8,90 +8,103 @@ import 'widgets.dart';
 class ReviewScreen extends StatelessWidget {
   const ReviewScreen({
     super.key,
-    required this.controller,
-    required this.tableId,
+    required this.controlador,
+    required this.idMesa,
   });
-  final AppController controller;
-  final String tableId;
-  Future<void> _notes(
-    BuildContext context,
-    OrderLine line,
-    MenuProduct product,
+  final AppController controlador;
+  final String idMesa;
+  Future<void> _editarObservaciones(
+    BuildContext contexto,
+    OrderLine detalle,
+    MenuProduct producto,
   ) async {
-    final input = TextEditingController(text: line.notes);
-    final notes = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
+    final entrada = TextEditingController(text: detalle.observaciones);
+    final observaciones = await mostrarDialogoConCampos<String>(
+      contexto,
+      campos: [entrada],
+      constructor: (contexto) => AlertDialog(
         title: const Text('Un toque a su gusto'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(line.name),
-            const SizedBox(height: 16),
-            TextField(
-              controller: input,
-              autofocus: true,
-              maxLength: 250,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Ej. sin cebolla, poco ají…',
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(detalle.nombre),
+              const SizedBox(height: 16),
+              TextField(
+                controller: entrada,
+                autofocus: true,
+                maxLength: 250,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Ej. sin cebolla, poco ají…',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(contexto),
             child: const Text('Volver'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, input.text),
+            onPressed: () => Navigator.pop(contexto, entrada.text),
             child: const Text('Guardar'),
           ),
         ],
       ),
     );
-    // Wait until the dialog route has disposed its text field before disposal.
-    if (notes != null) {
-      await controller.changeLine(tableId, product, notes: notes);
+    if (observaciones != null) {
+      await controlador.modificarDetalle(
+        idMesa,
+        producto,
+        observaciones: observaciones,
+      );
     }
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    input.dispose();
   }
 
-  Future<void> _send(BuildContext context, bool pending) async {
-    if (!pending) {
-      final confirmed = await confirmAction(
-        context,
-        title: '¿Enviamos el pedido?',
-        message: 'Revisa cantidades y observaciones. Una vez enviado, las correcciones requerirán autorización del administrador.',
-        confirm: 'Enviar pedido',
+  Future<void> _enviar(BuildContext contexto, bool pendiente) async {
+    if (!pendiente) {
+      final confirmado = await confirmarAccion(
+        contexto,
+        titulo: '¿Enviamos el pedido?',
+        mensaje: 'Revisa cantidades y observaciones. Una vez enviado, las correcciones requerirán autorización del administrador.',
+        confirmar: 'Enviar pedido',
       );
-      if (!confirmed || !context.mounted) {
+      if (!confirmado || !contexto.mounted) {
         return;
       }
     }
-    final ok = await controller.sendOrder(tableId);
-    if (ok && context.mounted) {
-      notifySuccess(
-        context,
-        controller.isDemo
+    final exito = await controlador.enviarPedido(idMesa);
+    if (exito &&
+        contexto.mounted &&
+        ModalRoute.of(contexto)?.isCurrent == true) {
+      mostrarConfirmacion(
+        contexto,
+        controlador.esDemo
             ? 'Pedido registrado en la demostración'
             : 'Pedido recibido por el servidor',
       );
-      Navigator.pop(context);
+      Navigator.pop(contexto);
     }
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: controller,
-    builder: (context, _) {
-      final c = controller;
-      final draft = c.draftFor(tableId);
-      final table = c.tables.where((t) => t.id == tableId).firstOrNull;
-      final editable = !c.busy && !(draft?.pending ?? false);
+  Widget build(BuildContext contexto) => AnimatedBuilder(
+    animation: controlador,
+    builder: (contexto, _) {
+      final estadoAplicacion = controlador;
+      final borrador = estadoAplicacion.borradorDeMesa(idMesa);
+      final mesa = estadoAplicacion.mesas
+          .where((mesaActual) => mesaActual.id == idMesa)
+          .firstOrNull;
+      final puedeDescartar =
+          !estadoAplicacion.procesando && !(borrador?.pendiente ?? false);
+      final esPropia =
+          estadoAplicacion.usuario != null &&
+          mesa?.idMozo == estadoAplicacion.usuario!.id;
+      final puedeEditar = puedeDescartar && esPropia;
       return Scaffold(
         appBar: AppBar(title: const Text('Revisar pedido')),
         body: SafeArea(
@@ -101,70 +114,84 @@ class ReviewScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(22),
                 children: [
-                  Row(
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
-                      const Icon(
-                        Icons.table_restaurant_outlined,
-                        color: ChifaColors.gold,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.table_restaurant_outlined,
+                            color: ChifaColors.dorado,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Mesa ${mesa?.numero.toString().padLeft(2, '0') ?? '—'}',
+                            style: Theme.of(contexto).textTheme.titleLarge,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Mesa ${table?.number.toString().padLeft(2, '0') ?? '—'}',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const Spacer(),
-                      const Pill('NUEVO PEDIDO', color: ChifaColors.gold),
+                      const Pill('NUEVO PEDIDO', color: ChifaColors.dorado),
                     ],
                   ),
                   const SizedBox(height: 22),
                   Text(
                     'Todo en su punto.',
-                    style: Theme.of(context).textTheme.headlineLarge,
+                    style: Theme.of(contexto).textTheme.headlineLarge,
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Confirma los platos y agrega indicaciones para cocina.',
-                    style: TextStyle(color: ChifaColors.muted, height: 1.5),
+                    style: TextStyle(color: ChifaColors.tenue, height: 1.5),
                   ),
-                  if (draft?.pending ?? false)
+                  if (borrador?.pendiente ?? false)
                     const Padding(
                       padding: EdgeInsets.only(top: 14),
                       child: Paper(
                         color: Color(0xFFFFF0D5),
-                        child: Text(
+                        contenido: Text(
                           'Este envío está pendiente de confirmación. Reintenta para consultar o completar el mismo pedido. Los platos permanecen bloqueados para evitar duplicados.',
                           style: TextStyle(fontSize: 12, height: 1.5),
                         ),
                       ),
                     ),
-                  if (c.error != null)
-                    ErrorNotice(c.error!, onDismiss: c.clearError),
-                  const SizedBox(height: 22),
-                  if (draft == null || draft.lines.isEmpty)
-                    const EmptyState(
-                      icon: Icons.shopping_bag_outlined,
-                      title: 'Aún no hay platos',
-                      message: 'Vuelve a la carta para comenzar tu pedido.',
+                  if (estadoAplicacion.error != null)
+                    ErrorNotice(
+                      estadoAplicacion.error!,
+                      alCerrar: estadoAplicacion.limpiarError,
                     ),
-                  ...?draft?.lines.map((line) {
-                    final product = c.products
-                        .where((p) => p.id == line.productId)
+                  const SizedBox(height: 22),
+                  if (borrador == null || borrador.detalles.isEmpty)
+                    const EmptyState(
+                      icono: Icons.shopping_bag_outlined,
+                      titulo: 'Aún no hay platos',
+                      mensaje: 'Vuelve a la carta para comenzar tu pedido.',
+                    ),
+                  ...?borrador?.detalles.map((detalle) {
+                    final producto = estadoAplicacion.productos
+                        .where(
+                          (productoActual) =>
+                              productoActual.id == detalle.idProducto,
+                        )
                         .firstOrNull;
-                    // Allow removal of a product even if it disappeared from the latest menu.
-                    final fallback =
-                        product ??
+                    // Permite quitar un producto aunque ya no aparezca en la carta actual.
+                    final productoAnterior =
+                        producto ??
                         MenuProduct(
-                          id: line.productId,
-                          name: line.name,
-                          description: '',
-                          category: '',
-                          priceCents: line.priceCents,
-                          available: false,
+                          id: detalle.idProducto,
+                          nombre: detalle.nombre,
+                          descripcion: '',
+                          categoria: '',
+                          precioCentimos: detalle.precioCentimos,
+                          disponible: false,
                         );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 14),
                       child: Paper(
-                        child: Column(
+                        contenido: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
@@ -172,7 +199,7 @@ class ReviewScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    line.name,
+                                    detalle.nombre,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 16,
@@ -181,7 +208,7 @@ class ReviewScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  money(line.totalCents),
+                                  formatearImporte(detalle.totalCentimos),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -190,20 +217,20 @@ class ReviewScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              '${money(line.priceCents)} por unidad',
+                              '${formatearImporte(detalle.precioCentimos)} por unidad',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: ChifaColors.muted,
+                                color: ChifaColors.tenue,
                               ),
                             ),
-                            if (product == null || !product.available)
+                            if (producto == null || !producto.disponible)
                               const Padding(
                                 padding: EdgeInsets.only(top: 8),
                                 child: Text(
                                   'No disponible en la carta actual. Retira este plato.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: ChifaColors.red,
+                                    color: ChifaColors.rojo,
                                   ),
                                 ),
                               ),
@@ -211,27 +238,33 @@ class ReviewScreen extends StatelessWidget {
                             Align(
                               alignment: Alignment.centerRight,
                               child: QuantityControl(
-                                quantity: line.quantity,
-                                onAdd: editable && (product?.available ?? false)
-                                    ? () => c.changeLine(
-                                        tableId,
-                                        fallback,
-                                        delta: 1,
+                                cantidad: detalle.cantidad,
+                                alAgregar:
+                                    puedeEditar &&
+                                        (producto?.disponible ?? false)
+                                    ? () => estadoAplicacion.modificarDetalle(
+                                        idMesa,
+                                        productoAnterior,
+                                        variacion: 1,
                                       )
                                     : null,
-                                onRemove: editable
-                                    ? () => c.changeLine(
-                                        tableId,
-                                        fallback,
-                                        delta: -1,
+                                alQuitar: puedeEditar
+                                    ? () => estadoAplicacion.modificarDetalle(
+                                        idMesa,
+                                        productoAnterior,
+                                        variacion: -1,
                                       )
                                     : null,
                               ),
                             ),
                             const Divider(height: 25),
                             InkWell(
-                              onTap: editable
-                                  ? () => _notes(context, line, fallback)
+                              onTap: puedeEditar
+                                  ? () => _editarObservaciones(
+                                      contexto,
+                                      detalle,
+                                      productoAnterior,
+                                    )
                                   : null,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -242,26 +275,26 @@ class ReviewScreen extends StatelessWidget {
                                     const Icon(
                                       Icons.edit_note_rounded,
                                       size: 20,
-                                      color: ChifaColors.gold,
+                                      color: ChifaColors.dorado,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        line.notes.isEmpty
+                                        detalle.observaciones.isEmpty
                                             ? 'Agregar observación'
-                                            : line.notes,
+                                            : detalle.observaciones,
                                         style: TextStyle(
                                           fontSize: 12,
                                           height: 1.5,
-                                          color: line.notes.isEmpty
-                                              ? ChifaColors.muted
-                                              : ChifaColors.ink,
+                                          color: detalle.observaciones.isEmpty
+                                              ? ChifaColors.tenue
+                                              : ChifaColors.tinta,
                                         ),
                                       ),
                                     ),
                                     const Icon(
                                       Icons.chevron_right_rounded,
-                                      color: ChifaColors.muted,
+                                      color: ChifaColors.tenue,
                                       size: 18,
                                     ),
                                   ],
@@ -273,11 +306,11 @@ class ReviewScreen extends StatelessWidget {
                       ),
                     );
                   }),
-                  if (draft != null && draft.lines.isNotEmpty) ...[
+                  if (borrador != null && borrador.detalles.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Paper(
                       color: const Color(0xFFF0E8DB),
-                      child: Row(
+                      contenido: Row(
                         children: [
                           Expanded(
                             child: Column(
@@ -289,21 +322,21 @@ class ReviewScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${draft.quantity} unidades',
+                                  '${borrador.cantidad} unidades',
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: ChifaColors.muted,
+                                    color: ChifaColors.tenue,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Text(
-                            money(draft.totalCents),
+                            formatearImporte(borrador.totalCentimos),
                             style: const TextStyle(
                               fontSize: 25,
                               fontWeight: FontWeight.w800,
-                              color: ChifaColors.red,
+                              color: ChifaColors.rojo,
                             ),
                           ),
                         ],
@@ -315,22 +348,24 @@ class ReviewScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,
-                        color: ChifaColors.muted,
+                        color: ChifaColors.tenue,
                         height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 18),
                     TextButton.icon(
-                      onPressed: editable
+                      onPressed: puedeDescartar
                           ? () async {
-                              final yes = await confirmAction(
-                                context,
-                                title: '¿Descartar borrador?',
-                                message: 'Se quitarán los platos que todavía no has enviado.',
-                                confirm: 'Descartar',
+                              final autorizado = await confirmarAccion(
+                                contexto,
+                                titulo: '¿Descartar borrador?',
+                                mensaje: 'Se quitarán los platos que todavía no has enviado.',
+                                confirmar: 'Descartar',
                               );
-                              if (yes) {
-                                await c.discardDraft(tableId);
+                              if (autorizado) {
+                                await estadoAplicacion.descartarBorrador(
+                                  idMesa,
+                                );
                               }
                             }
                           : null,
@@ -344,7 +379,7 @@ class ReviewScreen extends StatelessWidget {
             ),
           ),
         ),
-        bottomNavigationBar: draft == null || draft.lines.isEmpty
+        bottomNavigationBar: borrador == null || borrador.detalles.isEmpty
             ? null
             : SafeArea(
                 top: false,
@@ -352,19 +387,23 @@ class ReviewScreen extends StatelessWidget {
                   color: Colors.white,
                   padding: const EdgeInsets.all(20),
                   child: FilledButton.icon(
-                    onPressed: c.busy
+                    onPressed:
+                        estadoAplicacion.procesando ||
+                            (!esPropia && !borrador.pendiente)
                         ? null
-                        : () => _send(context, draft.pending),
+                        : () => _enviar(contexto, borrador.pendiente),
                     icon: Icon(
-                      draft.pending ? Icons.sync_rounded : Icons.send_rounded,
+                      borrador.pendiente
+                          ? Icons.sync_rounded
+                          : Icons.send_rounded,
                       size: 20,
                     ),
                     label: Text(
-                      c.busy
+                      estadoAplicacion.procesando
                           ? 'Procesando…'
-                          : draft.pending
+                          : borrador.pendiente
                           ? 'Reintentar confirmación'
-                          : 'Enviar pedido · ${money(draft.totalCents)}',
+                          : 'Enviar pedido · ${formatearImporte(borrador.totalCentimos)}',
                     ),
                   ),
                 ),

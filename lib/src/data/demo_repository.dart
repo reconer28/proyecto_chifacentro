@@ -6,395 +6,476 @@ import 'repository.dart';
 
 class DemoRepository implements RestaurantRepository {
   DemoRepository({
-    required this.store,
-    this.delay = const Duration(milliseconds: 280),
+    required this.almacenamiento,
+    this.demora = const Duration(milliseconds: 280),
   });
-  final LocalStore store;
-  final Duration delay;
-  bool offline = false;
-  Waiter? _user;
-  bool _loaded = false;
-  List<DiningTable> _tables = List.generate(
+  final LocalStore almacenamiento;
+  final Duration demora;
+  bool sinConexion = false;
+  Waiter? _usuario;
+  bool _datosCargados = false;
+  List<DiningTable> _mesas = List.generate(
     12,
-    (i) => DiningTable(
-      id: '${i + 1}',
-      number: i + 1,
-      seats: i % 3 == 0 ? 6 : 4,
-      zone: i < 8 ? 'Salón principal' : 'Terraza',
-      waiterId: i < 4 ? '1' : (i == 4 || i == 5 ? '2' : null),
+    (indice) => DiningTable(
+      id: '${indice + 1}',
+      numero: indice + 1,
+      capacidad: indice % 3 == 0 ? 6 : 4,
+      zona: indice < 8 ? 'Salón principal' : 'Terraza',
+      idMozo: indice < 4 ? '1' : (indice == 4 || indice == 5 ? '2' : null),
     ),
   );
-  List<ServiceOrder> _orders = [];
-  final Map<String, String> _receipts = {};
-  static const products = [
+  List<ServiceOrder> _pedidos = [];
+  final Map<String, String> _recibos = {};
+  static const productos = [
     MenuProduct(
       id: '1',
-      name: 'Arroz chaufa de pollo',
-      description: 'Arroz al wok, pollo, huevo y cebollita china.',
-      category: 'Chaufas',
-      priceCents: 1800,
-      featured: true,
+      nombre: 'Arroz chaufa de pollo',
+      descripcion: 'Arroz al wok, pollo, huevo y cebollita china.',
+      categoria: 'Chaufas',
+      precioCentimos: 1800,
+      destacado: true,
     ),
     MenuProduct(
       id: '2',
-      name: 'Chaufa especial',
-      description: 'Pollo, cerdo y langostinos al fuego del wok.',
-      category: 'Chaufas',
-      priceCents: 2500,
-      featured: true,
+      nombre: 'Chaufa especial',
+      descripcion: 'Pollo, cerdo y langostinos al fuego del wok.',
+      categoria: 'Chaufas',
+      precioCentimos: 2500,
+      destacado: true,
     ),
     MenuProduct(
       id: '3',
-      name: 'Chaufa de verduras',
-      description: 'Verduras frescas, huevo y nuestro toque de sillao.',
-      category: 'Chaufas',
-      priceCents: 1600,
+      nombre: 'Chaufa de verduras',
+      descripcion: 'Verduras frescas, huevo y nuestro toque de sillao.',
+      categoria: 'Chaufas',
+      precioCentimos: 1600,
     ),
     MenuProduct(
       id: '4',
-      name: 'Tallarín saltado de pollo',
-      description: 'Fideos, verduras crocantes y pollo salteado.',
-      category: 'Tallarines',
-      priceCents: 2000,
+      nombre: 'Tallarín saltado de pollo',
+      descripcion: 'Fideos, verduras crocantes y pollo salteado.',
+      categoria: 'Tallarines',
+      precioCentimos: 2000,
     ),
     MenuProduct(
       id: '5',
-      name: 'Aeropuerto',
-      description: 'El encuentro del chaufa y el tallarín, con pollo.',
-      category: 'Especiales',
-      priceCents: 2300,
-      featured: true,
+      nombre: 'Aeropuerto',
+      descripcion: 'El encuentro del chaufa y el tallarín, con pollo.',
+      categoria: 'Especiales',
+      precioCentimos: 2300,
+      destacado: true,
     ),
     MenuProduct(
       id: '6',
-      name: 'Pollo tipakay',
-      description: 'Pollo crocante bañado en salsa de tamarindo.',
-      category: 'Especiales',
-      priceCents: 2400,
+      nombre: 'Pollo tipakay',
+      descripcion: 'Pollo crocante bañado en salsa de tamarindo.',
+      categoria: 'Especiales',
+      precioCentimos: 2400,
     ),
     MenuProduct(
       id: '7',
-      name: 'Wantán frito',
-      description: 'Seis unidades crocantes con salsa de tamarindo.',
-      category: 'Entradas',
-      priceCents: 1200,
+      nombre: 'Wantán frito',
+      descripcion: 'Seis unidades crocantes con salsa de tamarindo.',
+      categoria: 'Entradas',
+      precioCentimos: 1200,
     ),
     MenuProduct(
       id: '8',
-      name: 'Sopa wantán',
-      description: 'Caldo de la casa, wantanes, pollo y verduras.',
-      category: 'Entradas',
-      priceCents: 1400,
+      nombre: 'Sopa wantán',
+      descripcion: 'Caldo de la casa, wantanes, pollo y verduras.',
+      categoria: 'Entradas',
+      precioCentimos: 1400,
     ),
     MenuProduct(
       id: '9',
-      name: 'Inca Kola 500 ml',
-      description: 'Bien helada, para acompañar tu pedido.',
-      category: 'Bebidas',
-      priceCents: 500,
+      nombre: 'Inca Kola 500 ml',
+      descripcion: 'Bien helada, para acompañar tu pedido.',
+      categoria: 'Bebidas',
+      precioCentimos: 500,
     ),
     MenuProduct(
       id: '10',
-      name: 'Chicha morada',
-      description: 'Un vaso de nuestra chicha de la casa.',
-      category: 'Bebidas',
-      priceCents: 600,
+      nombre: 'Chicha morada',
+      descripcion: 'Un vaso de nuestra chicha de la casa.',
+      categoria: 'Bebidas',
+      precioCentimos: 600,
     ),
     MenuProduct(
       id: '11',
-      name: 'Tallarín de langostinos',
-      description: 'Langostinos salteados con verduras de estación.',
-      category: 'Tallarines',
-      priceCents: 2800,
-      available: false,
+      nombre: 'Tallarín de langostinos',
+      descripcion: 'Langostinos salteados con verduras de estación.',
+      categoria: 'Tallarines',
+      precioCentimos: 2800,
+      disponible: false,
     ),
   ];
   @override
-  bool get isDemo => true;
-  Future<void> _check() async {
-    if (delay != Duration.zero) {
-      await Future<void>.delayed(delay);
+  bool get esDemo => true;
+  Future<void> _comprobarSesion() async {
+    if (demora != Duration.zero) {
+      await Future<void>.delayed(demora);
     }
-    if (offline) {
+    if (sinConexion) {
       throw const AppException(
         'Sin conexión de prueba. Tu borrador está guardado; vuelve a conectar desde Mi cuenta.',
       );
     }
-    if (_user == null) {
+    if (_usuario == null) {
       throw const AppException(
         'Inicia sesión para continuar.',
-        unauthorized: true,
-        definitive: true,
+        sesionVencida: true,
+        rechazoDefinitivo: true,
       );
     }
   }
 
   @override
-  Future<Waiter> login(String username, String password) async {
-    if (delay != Duration.zero) {
-      await Future<void>.delayed(delay);
+  Future<Waiter> iniciarSesion(String nombreUsuario, String contrasena) async {
+    if (demora != Duration.zero) {
+      await Future<void>.delayed(demora);
     }
-    if (!['mozo', 'lucia'].contains(username) || password != '123456') {
+    if (!['mozo', 'lucia'].contains(nombreUsuario) || contrasena != '123456') {
       throw const AppException(
         'Usuario o contraseña incorrectos.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    _user = Waiter(
-      id: username == 'mozo' ? '1' : '2',
-      name: username == 'mozo' ? 'Diego Ramírez' : 'Lucía Torres',
-      username: username,
+    _usuario = Waiter(
+      id: nombreUsuario == 'mozo' ? '1' : '2',
+      nombre: nombreUsuario == 'mozo' ? 'Diego Ramírez' : 'Lucía Torres',
+      nombreUsuario: nombreUsuario,
     );
-    return _user!;
+    return _usuario!;
   }
 
-  Future<void> _save() => store.write(
+  Future<void> _guardar() => almacenamiento.guardar(
     'demo.v1',
     jsonEncode({
-      'tables': _tables.map((t) => t.toJson()).toList(),
-      'orders': _orders.map((o) => o.toJson()).toList(),
-      'receipts': _receipts,
+      'tables': _mesas.map((mesaActual) => mesaActual.toJson()).toList(),
+      'orders': _pedidos.map((pedidoActual) => pedidoActual.toJson()).toList(),
+      'receipts': _recibos,
     }),
   );
+
+  Future<T> _guardarCambio<T>(T Function() cambio) async {
+    final mesasAnteriores = List<DiningTable>.of(_mesas);
+    final pedidosAnteriores = List<ServiceOrder>.of(_pedidos);
+    final recibosAnteriores = Map<String, String>.of(_recibos);
+    try {
+      final resultado = cambio();
+      await _guardar();
+      return resultado;
+    } catch (_) {
+      // Un fallo de almacenamiento no debe dejar una operación confirmada en memoria.
+      _mesas = mesasAnteriores;
+      _pedidos = pedidosAnteriores;
+      _recibos
+        ..clear()
+        ..addAll(recibosAnteriores);
+      rethrow;
+    }
+  }
+
   @override
-  Future<RestaurantSnapshot> load() async {
-    await _check();
-    if (!_loaded) {
-      final raw = await store.read('demo.v1');
-      if (raw != null) {
-        final j = jsonDecode(raw) as Map<String, dynamic>;
-        _tables = (j['tables'] as List)
+  Future<RestaurantSnapshot> cargar() async {
+    await _comprobarSesion();
+    if (!_datosCargados) {
+      final textoOriginal = await almacenamiento.leer('demo.v1');
+      if (textoOriginal != null) {
+        final datosJson = jsonDecode(textoOriginal) as Map<String, dynamic>;
+        _mesas = (datosJson['tables'] as List)
             .map(
-              (v) => DiningTable.fromJson(Map<String, dynamic>.from(v as Map)),
+              (valorActual) => DiningTable.fromJson(
+                Map<String, dynamic>.from(valorActual as Map),
+              ),
             )
             .toList();
-        _orders = (j['orders'] as List)
+        _pedidos = (datosJson['orders'] as List)
             .map(
-              (v) => ServiceOrder.fromJson(Map<String, dynamic>.from(v as Map)),
+              (valorActual) => ServiceOrder.fromJson(
+                Map<String, dynamic>.from(valorActual as Map),
+              ),
             )
             .toList();
-        _receipts.addAll(Map<String, String>.from(j['receipts'] as Map));
+        _recibos.addAll(Map<String, String>.from(datosJson['receipts'] as Map));
       }
-      _loaded = true;
+      _datosCargados = true;
     }
     return RestaurantSnapshot(
-      tables: List.of(_tables),
-      products: products,
-      orders: _orders
-          .where((o) => o.waiterId == _user!.id)
+      mesas: List.of(_mesas),
+      productos: productos,
+      pedidos: _pedidos
+          .where((pedidoActual) => pedidoActual.idMozo == _usuario!.id)
           .toList()
           .reversed
           .toList(),
     );
   }
 
-  void _admin(String password) {
-    if (password != '2468') {
+  void _validarAdministrador(String contrasena) {
+    if (contrasena != '2468') {
       throw const AppException(
         'La clave del administrador es incorrecta.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
   }
 
-  DiningTable _ownTable(String id) {
-    final table = _tables.firstWhere((t) => t.id == id);
-    if (table.waiterId != _user!.id) {
+  DiningTable _mesaPropia(String id) {
+    final mesa = _mesas.firstWhere((mesaActual) => mesaActual.id == id);
+    if (mesa.idMozo != _usuario!.id) {
       throw const AppException(
         'Esta mesa no está asignada a tu usuario.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    return table;
+    return mesa;
   }
 
   @override
-  Future<void> assignTables(List<String> tableIds, String adminPassword) async {
-    await _check();
-    _admin(adminPassword);
-    for (final t in _tables) {
-      if (tableIds.contains(t.id) &&
-          t.waiterId != null &&
-          t.waiterId != _user!.id) {
+  Future<void> asignarMesas(
+    List<String> idsMesas,
+    String claveAdministrador,
+  ) async {
+    await _comprobarSesion();
+    _validarAdministrador(claveAdministrador);
+    if (idsMesas.toSet().length != idsMesas.length ||
+        idsMesas.any((id) => !_mesas.any((mesa) => mesa.id == id))) {
+      throw const AppException(
+        'La selección contiene mesas inválidas.',
+        rechazoDefinitivo: true,
+      );
+    }
+    for (final mesaActual in _mesas) {
+      if (idsMesas.contains(mesaActual.id) &&
+          mesaActual.idMozo != null &&
+          mesaActual.idMozo != _usuario!.id) {
         throw const AppException(
           'Una mesa ya está asignada a otro mozo.',
-          definitive: true,
+          rechazoDefinitivo: true,
         );
       }
-      if (t.waiterId == _user!.id && t.occupied && !tableIds.contains(t.id)) {
+      if (mesaActual.idMozo == _usuario!.id &&
+          mesaActual.ocupada &&
+          !idsMesas.contains(mesaActual.id)) {
         throw const AppException(
           'Cierra la atención antes de quitar una mesa ocupada.',
-          definitive: true,
+          rechazoDefinitivo: true,
         );
       }
     }
-    _tables = _tables
-        .map(
-          (t) => tableIds.contains(t.id)
-              ? t.update(waiterId: _user!.id)
-              : (t.waiterId == _user!.id ? t.update(clearWaiter: true) : t),
-        )
-        .toList();
-    await _save();
+    await _guardarCambio(() {
+      _mesas = _mesas
+          .map(
+            (mesaActual) => idsMesas.contains(mesaActual.id)
+                ? mesaActual.actualizar(idMozo: _usuario!.id)
+                : (mesaActual.idMozo == _usuario!.id
+                      ? mesaActual.actualizar(quitarMozo: true)
+                      : mesaActual),
+          )
+          .toList();
+    });
   }
 
   @override
-  Future<ServiceOrder> sendOrder(OrderDraft draft) async {
-    await _check();
-    final receipt = _receipts[draft.key];
-    if (receipt != null) {
-      return _orders.firstWhere((o) => o.id == receipt);
+  Future<ServiceOrder> enviarPedido(OrderDraft borrador) async {
+    await _comprobarSesion();
+    final recibo = _recibos[borrador.clave];
+    if (recibo != null) {
+      final pedido = _pedidos.firstWhere((actual) => actual.id == recibo);
+      if (pedido.idMozo != _usuario!.id) {
+        throw const AppException(
+          'El pedido pertenece a otro mozo.',
+          rechazoDefinitivo: true,
+        );
+      }
+      return pedido;
     }
-    final table = _ownTable(draft.tableId);
-    if (draft.lines.isEmpty) {
-      throw const AppException('Agrega al menos un plato.', definitive: true);
+    final mesa = _mesaPropia(borrador.idMesa);
+    if (borrador.detalles.isEmpty) {
+      throw const AppException(
+        'Agrega al menos un plato.',
+        rechazoDefinitivo: true,
+      );
     }
-    final lines = draft.lines.map((line) {
-      final product = products.firstWhere((p) => p.id == line.productId);
-      if (!product.available || line.quantity < 1 || line.quantity > 99) {
+    final detalles = borrador.detalles.map((detalle) {
+      final producto = productos.firstWhere(
+        (productoActual) => productoActual.id == detalle.idProducto,
+      );
+      if (!producto.disponible ||
+          detalle.cantidad < 1 ||
+          detalle.cantidad > 99 ||
+          detalle.observaciones.length > 250) {
         throw const AppException(
           'Revisa la disponibilidad y las cantidades.',
-          definitive: true,
+          rechazoDefinitivo: true,
         );
       }
       return OrderLine(
-        productId: product.id,
-        name: product.name,
-        priceCents: product.priceCents,
-        quantity: line.quantity,
-        notes: line.notes,
+        idProducto: producto.id,
+        nombre: producto.nombre,
+        precioCentimos: producto.precioCentimos,
+        cantidad: detalle.cantidad,
+        observaciones: detalle.observaciones,
       );
     }).toList();
-    final order = ServiceOrder(
-      id: '${1001 + _orders.length}',
-      tableId: table.id,
-      tableNumber: table.number,
-      waiterId: _user!.id,
-      createdAt: DateTime.now(),
-      lines: lines,
+    final pedido = ServiceOrder(
+      id: '${1001 + _pedidos.length}',
+      idMesa: mesa.id,
+      numeroMesa: mesa.numero,
+      idMozo: _usuario!.id,
+      fechaCreacion: DateTime.now(),
+      detalles: detalles,
     );
-    _orders.add(order);
-    _receipts[draft.key] = order.id;
-    _recalculate();
-    await _save();
-    return order;
+    return _guardarCambio(() {
+      _pedidos.add(pedido);
+      _recibos[borrador.clave] = pedido.id;
+      _recalcular();
+      return pedido;
+    });
   }
 
-  void _recalculate() {
-    _tables = _tables.map((t) {
-      final active = _orders.where(
-        (o) =>
-            o.tableId == t.id &&
-            o.closedAt == null &&
-            o.status != OrderStatus.cancelled,
+  void _recalcular() {
+    _mesas = _mesas.map((mesaActual) {
+      final atencion = _pedidos.where(
+        (pedidoActual) =>
+            pedidoActual.idMesa == mesaActual.id &&
+            pedidoActual.fechaCierre == null,
       );
-      return t.update(
-        occupied: active.isNotEmpty,
-        totalCents: active.fold(0, (sum, o) => sum! + o.totalCents),
+      final activos = atencion.where(
+        (pedido) => pedido.estado != OrderStatus.cancelled,
+      );
+      return mesaActual.actualizar(
+        ocupada: atencion.isNotEmpty,
+        totalCentimos: activos.fold<int>(
+          0,
+          (suma, pedidoActual) => suma + pedidoActual.totalCentimos,
+        ),
       );
     }).toList();
   }
 
-  ServiceOrder _ownOrder(String id) {
-    final order = _orders.firstWhere((o) => o.id == id);
-    _ownTable(order.tableId);
-    if (order.closedAt != null || order.status == OrderStatus.cancelled) {
+  ServiceOrder _pedidoPropio(String id) {
+    final pedido = _pedidos.firstWhere((pedidoActual) => pedidoActual.id == id);
+    if (pedido.idMozo != _usuario!.id) {
+      throw const AppException(
+        'El pedido pertenece a otro mozo.',
+        rechazoDefinitivo: true,
+      );
+    }
+    _mesaPropia(pedido.idMesa);
+    if (pedido.fechaCierre != null || pedido.estado == OrderStatus.cancelled) {
       throw const AppException(
         'El pedido ya está cerrado o anulado.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    return order;
+    return pedido;
   }
 
   @override
-  Future<void> cancelOrder(
-    String orderId,
-    String reason,
-    String adminPassword,
+  Future<void> anularPedido(
+    String idPedido,
+    String motivo,
+    String claveAdministrador,
   ) async {
-    await _check();
-    _admin(adminPassword);
-    final order = _ownOrder(orderId);
-    if (order.status != OrderStatus.sent || reason.trim().isEmpty) {
+    await _comprobarSesion();
+    _validarAdministrador(claveAdministrador);
+    final pedido = _pedidoPropio(idPedido);
+    if (pedido.estado != OrderStatus.sent || motivo.trim().isEmpty) {
       throw const AppException(
         'Solo puedes anular pedidos enviados indicando un motivo.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    _orders[_orders.indexOf(order)] = order.update(
-      status: OrderStatus.cancelled,
-      cancellationReason: reason.trim(),
-    );
-    _recalculate();
-    await _save();
+    await _guardarCambio(() {
+      _pedidos[_pedidos.indexOf(pedido)] = pedido.actualizar(
+        estado: OrderStatus.cancelled,
+        motivoAnulacion: motivo.trim(),
+      );
+      _recalcular();
+    });
   }
 
   @override
-  Future<void> deliverOrder(String orderId) async {
-    await _check();
-    final order = _ownOrder(orderId);
-    _orders[_orders.indexOf(order)] = order.update(
-      status: OrderStatus.delivered,
-    );
-    await _save();
+  Future<void> entregarPedido(String idPedido) async {
+    await _comprobarSesion();
+    final pedido = _pedidoPropio(idPedido);
+    await _guardarCambio(() {
+      _pedidos[_pedidos.indexOf(pedido)] = pedido.actualizar(
+        estado: OrderStatus.delivered,
+      );
+    });
   }
 
   @override
-  Future<void> closeTable(String tableId, List<String> expectedOrderIds) async {
-    await _check();
-    _ownTable(tableId);
-    final expected = _orders
-        .where((o) => expectedOrderIds.contains(o.id) && o.tableId == tableId)
+  Future<void> cerrarMesa(
+    String idMesa,
+    List<String> idsPedidosEsperados,
+  ) async {
+    await _comprobarSesion();
+    _mesaPropia(idMesa);
+    final esperados = _pedidos
+        .where(
+          (pedidoActual) =>
+              idsPedidosEsperados.contains(pedidoActual.id) &&
+              pedidoActual.idMesa == idMesa,
+        )
         .toList();
-    if (expectedOrderIds.isEmpty ||
-        expected.length != expectedOrderIds.length) {
+    if (idsPedidosEsperados.isEmpty ||
+        esperados.length != idsPedidosEsperados.length) {
       throw const AppException(
         'Actualiza los pedidos de la mesa antes de cerrarla.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    if (expected.every((o) => o.closedAt != null)) {
+    if (esperados.every((pedidoActual) => pedidoActual.fechaCierre != null)) {
       return;
     }
-    final currentIds = _orders
-        .where((o) => o.tableId == tableId && o.closedAt == null)
-        .map((o) => o.id)
+    final idsActuales = _pedidos
+        .where(
+          (pedidoActual) =>
+              pedidoActual.idMesa == idMesa && pedidoActual.fechaCierre == null,
+        )
+        .map((pedidoActual) => pedidoActual.id)
         .toSet();
-    if (currentIds.length != expectedOrderIds.length ||
-        !currentIds.containsAll(expectedOrderIds)) {
+    if (idsActuales.length != idsPedidosEsperados.length ||
+        !idsActuales.containsAll(idsPedidosEsperados)) {
       throw const AppException(
         'Los pedidos cambiaron. Actualiza la mesa antes de cerrarla.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    if (_orders.any(
-      (o) =>
-          o.tableId == tableId &&
-          o.closedAt == null &&
-          o.status != OrderStatus.cancelled &&
-          o.status != OrderStatus.delivered,
+    if (_pedidos.any(
+      (pedidoActual) =>
+          pedidoActual.idMesa == idMesa &&
+          pedidoActual.fechaCierre == null &&
+          pedidoActual.estado != OrderStatus.cancelled &&
+          pedidoActual.estado != OrderStatus.delivered,
     )) {
       throw const AppException(
         'Marca los pedidos como entregados antes de cerrar la mesa.',
-        definitive: true,
+        rechazoDefinitivo: true,
       );
     }
-    _orders = _orders
-        .map(
-          (o) => o.tableId == tableId && o.closedAt == null
-              ? o.update(closedAt: DateTime.now())
-              : o,
-        )
-        .toList();
-    _recalculate();
-    await _save();
+    await _guardarCambio(() {
+      _pedidos = _pedidos
+          .map(
+            (pedidoActual) =>
+                pedidoActual.idMesa == idMesa &&
+                    pedidoActual.fechaCierre == null
+                ? pedidoActual.actualizar(fechaCierre: DateTime.now())
+                : pedidoActual,
+          )
+          .toList();
+      _recalcular();
+    });
   }
 
   @override
-  Future<void> logout() async {
-    _user = null;
-    offline = false;
+  Future<void> cerrarSesion() async {
+    _usuario = null;
+    sinConexion = false;
   }
 
   @override

@@ -7,55 +7,58 @@ import 'assignment_screen.dart';
 import 'widgets.dart';
 
 class AccountScreen extends StatefulWidget {
-  const AccountScreen({super.key, required this.controller});
-  final AppController controller;
+  const AccountScreen({super.key, required this.controlador});
+  final AppController controlador;
   @override
   State<AccountScreen> createState() => _AccountScreenState();
 }
 
 class _AccountScreenState extends State<AccountScreen> {
   @override
-  Widget build(BuildContext context) {
-    final c = widget.controller;
-    final demo = c.repository is DemoRepository
-        ? c.repository as DemoRepository
+  Widget build(BuildContext contexto) {
+    final estadoAplicacion = widget.controlador;
+    final demo = estadoAplicacion.repositorio is DemoRepository
+        ? estadoAplicacion.repositorio as DemoRepository
         : null;
     return ListView(
       padding: const EdgeInsets.all(22),
       children: [
-        Text('Mi cuenta', style: Theme.of(context).textTheme.headlineLarge),
+        Text('Mi cuenta', style: Theme.of(contexto).textTheme.headlineLarge),
         const SizedBox(height: 8),
         const Text(
           'Todo listo para un gran servicio.',
-          style: TextStyle(color: ChifaColors.muted),
+          style: TextStyle(color: ChifaColors.tenue),
         ),
         const SizedBox(height: 25),
         Paper(
-          child: Column(
+          contenido: Column(
             children: [
               CircleAvatar(
                 radius: 35,
                 backgroundColor: const Color(0xFFF1E3D0),
                 child: Text(
-                  c.user!.name.substring(0, 1),
+                  estadoAplicacion.usuario!.nombre.substring(0, 1),
                   style: const TextStyle(
                     fontSize: 32,
-                    color: ChifaColors.gold,
+                    color: ChifaColors.dorado,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              Text(c.user!.name, style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                estadoAplicacion.usuario!.nombre,
+                style: Theme.of(contexto).textTheme.titleLarge,
+              ),
               const SizedBox(height: 5),
               Text(
-                '@${c.user!.username} · Mozo',
-                style: const TextStyle(color: ChifaColors.muted, fontSize: 13),
+                '@${estadoAplicacion.usuario!.nombreUsuario} · Mozo',
+                style: const TextStyle(color: ChifaColors.tenue, fontSize: 13),
               ),
               const SizedBox(height: 16),
               const Pill(
                 'Sesión activa',
-                icon: Icons.check_circle_outline_rounded,
+                icono: Icons.check_circle_outline_rounded,
               ),
               const Divider(height: 35),
               Row(
@@ -64,14 +67,14 @@ class _AccountScreenState extends State<AccountScreen> {
                   Column(
                     children: [
                       Text(
-                        '${c.myTables.length}',
-                        style: Theme.of(context).textTheme.headlineMedium,
+                        '${estadoAplicacion.misMesas.length}',
+                        style: Theme.of(contexto).textTheme.headlineMedium,
                       ),
                       const Text(
                         'Mesas asignadas',
                         style: TextStyle(
                           fontSize: 11,
-                          color: ChifaColors.muted,
+                          color: ChifaColors.tenue,
                         ),
                       ),
                     ],
@@ -79,14 +82,14 @@ class _AccountScreenState extends State<AccountScreen> {
                   Column(
                     children: [
                       Text(
-                        '${c.drafts.length}',
-                        style: Theme.of(context).textTheme.headlineMedium,
+                        '${estadoAplicacion.borradores.length}',
+                        style: Theme.of(contexto).textTheme.headlineMedium,
                       ),
                       const Text(
                         'Borradores guardados',
                         style: TextStyle(
                           fontSize: 11,
-                          color: ChifaColors.muted,
+                          color: ChifaColors.tenue,
                         ),
                       ),
                     ],
@@ -101,15 +104,15 @@ class _AccountScreenState extends State<AccountScreen> {
           'MI TURNO',
           style: TextStyle(
             fontSize: 10,
-            color: ChifaColors.muted,
+            color: ChifaColors.tenue,
             letterSpacing: 1.6,
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 12),
         Paper(
-          padding: EdgeInsets.zero,
-          child: Column(
+          relleno: EdgeInsets.zero,
+          contenido: Column(
             children: [
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(
@@ -118,7 +121,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
                 leading: const Icon(
                   Icons.table_restaurant_outlined,
-                  color: ChifaColors.gold,
+                  color: ChifaColors.dorado,
                 ),
                 title: const Text(
                   'Asignar mis mesas',
@@ -129,12 +132,13 @@ class _AccountScreenState extends State<AccountScreen> {
                   style: TextStyle(fontSize: 11),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: c.busy
+                onTap: estadoAplicacion.procesando
                     ? null
                     : () => Navigator.push(
-                        context,
+                        contexto,
                         MaterialPageRoute<void>(
-                          builder: (_) => AssignmentScreen(controller: c),
+                          builder: (_) =>
+                              AssignmentScreen(controlador: estadoAplicacion),
                         ),
                       ),
               ),
@@ -146,7 +150,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
                 leading: const Icon(
                   Icons.sync_rounded,
-                  color: ChifaColors.gold,
+                  color: ChifaColors.dorado,
                 ),
                 title: const Text(
                   'Actualizar datos',
@@ -157,7 +161,9 @@ class _AccountScreenState extends State<AccountScreen> {
                   style: TextStyle(fontSize: 11),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: c.busy ? null : c.refresh,
+                onTap: estadoAplicacion.procesando
+                    ? null
+                    : estadoAplicacion.actualizarDatos,
               ),
             ],
           ),
@@ -168,7 +174,7 @@ class _AccountScreenState extends State<AccountScreen> {
             'DEMOSTRACIÓN',
             style: TextStyle(
               fontSize: 10,
-              color: ChifaColors.muted,
+              color: ChifaColors.tenue,
               letterSpacing: 1.6,
               fontWeight: FontWeight.w800,
             ),
@@ -176,14 +182,14 @@ class _AccountScreenState extends State<AccountScreen> {
           const SizedBox(height: 12),
           Paper(
             color: const Color(0xFFF0E9DD),
-            child: Column(
+            contenido: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Row(
                   children: [
                     Icon(
                       Icons.science_outlined,
-                      color: ChifaColors.gold,
+                      color: ChifaColors.dorado,
                       size: 20,
                     ),
                     SizedBox(width: 10),
@@ -199,7 +205,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.6,
-                    color: ChifaColors.muted,
+                    color: ChifaColors.tenue,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -213,17 +219,17 @@ class _AccountScreenState extends State<AccountScreen> {
                     'Prueba la recuperación de un envío',
                     style: TextStyle(fontSize: 11),
                   ),
-                  value: demo.offline,
-                  onChanged: c.busy
+                  value: demo.sinConexion,
+                  onChanged: estadoAplicacion.procesando
                       ? null
-                      : (v) {
-                          setState(() => demo.offline = v);
-                          c.clearError();
+                      : (valorActual) {
+                          setState(() => demo.sinConexion = valorActual);
+                          estadoAplicacion.limpiarError();
                         },
                 ),
                 const Text(
                   'Administrador: 2468',
-                  style: TextStyle(fontSize: 11, color: ChifaColors.muted),
+                  style: TextStyle(fontSize: 11, color: ChifaColors.tenue),
                 ),
               ],
             ),
@@ -231,29 +237,29 @@ class _AccountScreenState extends State<AccountScreen> {
         ],
         const SizedBox(height: 28),
         OutlinedButton.icon(
-          onPressed: c.busy
+          onPressed: estadoAplicacion.procesando
               ? null
               : () async {
-                  final yes = await confirmAction(
-                    context,
-                    title: '¿Cerrar sesión?',
-                    message: 'Tus borradores quedarán guardados para cuando vuelvas a ingresar con este usuario.',
-                    confirm: 'Cerrar sesión',
+                  final autorizado = await confirmarAccion(
+                    contexto,
+                    titulo: '¿Cerrar sesión?',
+                    mensaje: 'Tus borradores quedarán guardados para cuando vuelvas a ingresar con este usuario.',
+                    confirmar: 'Cerrar sesión',
                   );
-                  if (yes) {
-                    await c.logout();
+                  if (autorizado) {
+                    await estadoAplicacion.cerrarSesion();
                   }
                 },
           icon: const Icon(Icons.logout_rounded, size: 19),
           label: const Text('Cerrar sesión'),
         ),
         const SizedBox(height: 30),
-        const Center(child: Brand(compact: true)),
+        const Center(child: Brand(compacta: true)),
         const SizedBox(height: 14),
         const Text(
           'El sabor de siempre. Un servicio más ágil.\nVersión 1.0.0',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 10, height: 1.8, color: ChifaColors.muted),
+          style: TextStyle(fontSize: 10, height: 1.8, color: ChifaColors.tenue),
         ),
         const SizedBox(height: 15),
       ],

@@ -8,32 +8,33 @@ import 'menu_screen.dart';
 import 'widgets.dart';
 
 class TablesScreen extends StatefulWidget {
-  const TablesScreen({super.key, required this.controller});
-  final AppController controller;
+  const TablesScreen({super.key, required this.controlador});
+  final AppController controlador;
   @override
   State<TablesScreen> createState() => _TablesScreenState();
 }
 
 class _TablesScreenState extends State<TablesScreen> {
-  String _filter = 'Todas';
+  String _filtro = 'Todas';
   @override
-  Widget build(BuildContext context) {
-    final c = widget.controller;
-    final tables = c.myTables;
-    final occupied = tables.where((t) => t.occupied).length;
-    final filtered = tables
+  Widget build(BuildContext contexto) {
+    final estadoAplicacion = widget.controlador;
+    final mesas = estadoAplicacion.misMesas;
+    final ocupada = mesas.where((mesaActual) => mesaActual.ocupada).length;
+    final mesasFiltradas = mesas
         .where(
-          (t) => switch (_filter) {
-            'Libres' => !t.occupied,
-            'En atención' => t.occupied,
-            'Borradores' => c.draftFor(t.id) != null,
+          (mesaActual) => switch (_filtro) {
+            'Libres' => !mesaActual.ocupada,
+            'En atención' => mesaActual.ocupada,
+            'Borradores' =>
+              estadoAplicacion.borradorDeMesa(mesaActual.id) != null,
             _ => true,
           },
         )
         .toList();
     return RefreshIndicator(
       onRefresh: () async {
-        await c.refresh();
+        await estadoAplicacion.actualizarDatos();
       },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -51,14 +52,14 @@ class _TablesScreenState extends State<TablesScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hola, ${c.user!.name.split(' ').first}',
-                              style: Theme.of(context).textTheme.headlineLarge,
+                              'Hola, ${estadoAplicacion.usuario!.nombre.split(' ').first}',
+                              style: Theme.of(contexto).textTheme.headlineLarge,
                             ),
                             const SizedBox(height: 5),
                             const Text(
                               'Una buena atención empieza aquí.',
                               style: TextStyle(
-                                color: ChifaColors.muted,
+                                color: ChifaColors.tenue,
                                 fontSize: 13,
                               ),
                             ),
@@ -74,10 +75,10 @@ class _TablesScreenState extends State<TablesScreen> {
                         ),
                         alignment: Alignment.center,
                         child: Text(
-                          c.user!.name.substring(0, 1),
+                          estadoAplicacion.usuario!.nombre.substring(0, 1),
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: ChifaColors.gold,
+                            color: ChifaColors.dorado,
                             fontSize: 22,
                           ),
                         ),
@@ -88,7 +89,7 @@ class _TablesScreenState extends State<TablesScreen> {
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: ChifaColors.red,
+                      color: ChifaColors.rojo,
                       borderRadius: BorderRadius.circular(25),
                     ),
                     child: Column(
@@ -118,9 +119,9 @@ class _TablesScreenState extends State<TablesScreen> {
                         const SizedBox(height: 20),
                         Row(
                           children: [
-                            _Stat('${tables.length}', 'Asignadas'),
-                            _Stat('$occupied', 'En atención'),
-                            _Stat('${tables.length - occupied}', 'Libres'),
+                            _Stat('${mesas.length}', 'Asignadas'),
+                            _Stat('$ocupada', 'En atención'),
+                            _Stat('${mesas.length - ocupada}', 'Libres'),
                           ],
                         ),
                       ],
@@ -132,17 +133,18 @@ class _TablesScreenState extends State<TablesScreen> {
                       Expanded(
                         child: Text(
                           'Mis mesas',
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: Theme.of(contexto).textTheme.titleLarge,
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: c.busy
+                        onPressed: estadoAplicacion.procesando
                             ? null
                             : () => Navigator.push(
-                                context,
+                                contexto,
                                 MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      AssignmentScreen(controller: c),
+                                  builder: (_) => AssignmentScreen(
+                                    controlador: estadoAplicacion,
+                                  ),
                                 ),
                               ),
                         icon: const Icon(Icons.tune_rounded, size: 17),
@@ -152,7 +154,7 @@ class _TablesScreenState extends State<TablesScreen> {
                   ),
                   const Text(
                     'Selecciona una mesa para tomar su pedido.',
-                    style: TextStyle(color: ChifaColors.muted, fontSize: 12),
+                    style: TextStyle(color: ChifaColors.tenue, fontSize: 12),
                   ),
                   const SizedBox(height: 16),
                   SingleChildScrollView(
@@ -160,23 +162,24 @@ class _TablesScreenState extends State<TablesScreen> {
                     child: Row(
                       children: ['Todas', 'Libres', 'En atención', 'Borradores']
                           .map(
-                            (f) => Padding(
+                            (filtroActual) => Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(
-                                label: Text(f),
-                                selected: _filter == f,
-                                onSelected: (_) => setState(() => _filter = f),
+                                label: Text(filtroActual),
+                                selected: _filtro == filtroActual,
+                                onSelected: (_) =>
+                                    setState(() => _filtro = filtroActual),
                                 showCheckmark: false,
-                                selectedColor: ChifaColors.ink,
+                                selectedColor: ChifaColors.tinta,
                                 backgroundColor: Colors.white,
                                 side: const BorderSide(
                                   color: Color(0xFFE4DCD0),
                                 ),
                                 labelStyle: TextStyle(
                                   fontSize: 12,
-                                  color: _filter == f
+                                  color: _filtro == filtroActual
                                       ? Colors.white
-                                      : ChifaColors.muted,
+                                      : ChifaColors.tenue,
                                 ),
                               ),
                             ),
@@ -189,25 +192,26 @@ class _TablesScreenState extends State<TablesScreen> {
               ),
             ),
           ),
-          if (filtered.isEmpty)
+          if (mesasFiltradas.isEmpty)
             SliverToBoxAdapter(
               child: EmptyState(
-                icon: Icons.table_restaurant_outlined,
-                title: tables.isEmpty
+                icono: Icons.table_restaurant_outlined,
+                titulo: mesas.isEmpty
                     ? 'Tu turno empieza con una mesa'
                     : 'Sin mesas en este estado',
-                message: tables.isEmpty
+                mensaje: mesas.isEmpty
                     ? 'Asigna tus mesas con la autorización del administrador. Si aún están cargando, usa actualizar.'
                     : 'Prueba con otro filtro para ver tus mesas.',
-                action: tables.isEmpty
+                accion: mesas.isEmpty
                     ? FilledButton(
-                        onPressed: c.busy
+                        onPressed: estadoAplicacion.procesando
                             ? null
                             : () => Navigator.push(
-                                context,
+                                contexto,
                                 MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      AssignmentScreen(controller: c),
+                                  builder: (_) => AssignmentScreen(
+                                    controlador: estadoAplicacion,
+                                  ),
                                 ),
                               ),
                         child: const Text('Asignar mis mesas'),
@@ -218,30 +222,36 @@ class _TablesScreenState extends State<TablesScreen> {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             sliver: SliverLayoutBuilder(
-              builder: (context, constraints) => SliverGrid(
+              builder: (contexto, restricciones) => SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: constraints.crossAxisExtent < 285
+                  crossAxisCount: restricciones.crossAxisExtent < 285
                       ? 1
-                      : (constraints.crossAxisExtent > 620 ? 3 : 2),
-                  mainAxisExtent: MediaQuery.textScalerOf(context).scale(225),
+                      : (restricciones.crossAxisExtent > 620 ? 3 : 2),
+                  mainAxisExtent: MediaQuery.textScalerOf(contexto).scale(225),
                   crossAxisSpacing: 13,
                   mainAxisSpacing: 13,
                 ),
-                delegate: SliverChildBuilderDelegate((context, i) {
-                  final t = filtered[i];
-                  final draft = c.draftFor(t.id);
-                  return _TableCard(
-                    table: t,
-                    draft: draft,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            MenuScreen(controller: c, tableId: t.id),
-                      ),
-                    ),
+                delegate: SliverChildBuilderDelegate((contexto, indice) {
+                  final mesaActual = mesasFiltradas[indice];
+                  final borrador = estadoAplicacion.borradorDeMesa(
+                    mesaActual.id,
                   );
-                }, childCount: filtered.length),
+                  return _TableCard(
+                    mesa: mesaActual,
+                    borrador: borrador,
+                    alTocar: estadoAplicacion.procesando
+                        ? null
+                        : () => Navigator.push(
+                            contexto,
+                            MaterialPageRoute<void>(
+                              builder: (_) => MenuScreen(
+                                controlador: estadoAplicacion,
+                                idMesa: mesaActual.id,
+                              ),
+                            ),
+                          ),
+                  );
+                }, childCount: mesasFiltradas.length),
               ),
             ),
           ),
@@ -254,18 +264,18 @@ class _TablesScreenState extends State<TablesScreen> {
                   const Icon(
                     Icons.touch_app_outlined,
                     size: 15,
-                    color: ChifaColors.muted,
+                    color: ChifaColors.tenue,
                   ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      c.lastUpdated == null
+                      estadoAplicacion.ultimaActualizacion == null
                           ? 'Desliza hacia abajo para actualizar'
-                          : 'Actualizado a las ${TimeOfDay.fromDateTime(c.lastUpdated!).format(context)} · Desliza para actualizar',
+                          : 'Actualizado a las ${TimeOfDay.fromDateTime(estadoAplicacion.ultimaActualizacion!).format(contexto)} · Desliza para actualizar',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 10,
-                        color: ChifaColors.muted,
+                        color: ChifaColors.tenue,
                       ),
                     ),
                   ),
@@ -280,16 +290,16 @@ class _TablesScreenState extends State<TablesScreen> {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat(this.number, this.label);
-  final String number;
-  final String label;
+  const _Stat(this.numero, this.etiqueta);
+  final String numero;
+  final String etiqueta;
   @override
-  Widget build(BuildContext context) => Expanded(
+  Widget build(BuildContext contexto) => Expanded(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          number,
+          numero,
           style: const TextStyle(
             fontSize: 32,
             height: 1,
@@ -299,7 +309,7 @@ class _Stat extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          label,
+          etiqueta,
           style: const TextStyle(fontSize: 11, color: Color(0xFFEBCBC3)),
         ),
       ],
@@ -309,29 +319,29 @@ class _Stat extends StatelessWidget {
 
 class _TableCard extends StatelessWidget {
   const _TableCard({
-    required this.table,
-    required this.draft,
-    required this.onTap,
+    required this.mesa,
+    required this.borrador,
+    required this.alTocar,
   });
-  final DiningTable table;
-  final OrderDraft? draft;
-  final VoidCallback onTap;
+  final DiningTable mesa;
+  final OrderDraft? borrador;
+  final VoidCallback? alTocar;
   @override
-  Widget build(BuildContext context) {
-    final color = table.occupied ? ChifaColors.red : ChifaColors.green;
+  Widget build(BuildContext contexto) {
+    final color = mesa.ocupada ? ChifaColors.rojo : ChifaColors.verde;
     return Material(
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
         side: BorderSide(
-          color: table.occupied
+          color: mesa.ocupada
               ? const Color(0xFFE7C4BC)
               : const Color(0xFFE6E1D7),
         ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: alTocar,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -349,10 +359,10 @@ class _TableCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${table.seats} personas',
+                    '${mesa.capacidad} personas',
                     style: const TextStyle(
                       fontSize: 10,
-                      color: ChifaColors.muted,
+                      color: ChifaColors.tenue,
                     ),
                   ),
                 ],
@@ -362,14 +372,14 @@ class _TableCard extends StatelessWidget {
                 child: Icon(
                   Icons.table_restaurant_rounded,
                   size: 45,
-                  color: table.occupied
-                      ? ChifaColors.red
+                  color: mesa.ocupada
+                      ? ChifaColors.rojo
                       : const Color(0xFFB6A48A),
                 ),
               ),
               const Spacer(),
               Text(
-                'Mesa ${table.number.toString().padLeft(2, '0')}',
+                'Mesa ${mesa.numero.toString().padLeft(2, '0')}',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -378,26 +388,26 @@ class _TableCard extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                table.zone,
+                mesa.zona,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: ChifaColors.muted),
+                style: const TextStyle(fontSize: 11, color: ChifaColors.tenue),
               ),
               const SizedBox(height: 12),
-              if (draft != null)
+              if (borrador != null)
                 Pill(
-                  draft!.pending
+                  borrador!.pendiente
                       ? 'Por confirmar'
-                      : 'Borrador · ${draft!.quantity}',
-                  color: ChifaColors.gold,
-                  icon: Icons.edit_note_rounded,
+                      : 'Borrador · ${borrador!.cantidad}',
+                  color: ChifaColors.dorado,
+                  icono: Icons.edit_note_rounded,
                 )
               else
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        table.occupied ? 'En atención' : 'Disponible',
+                        mesa.ocupada ? 'En atención' : 'Disponible',
                         style: TextStyle(
                           fontSize: 11,
                           color: color,
@@ -405,9 +415,9 @@ class _TableCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (table.occupied)
+                    if (mesa.ocupada)
                       Text(
-                        money(table.totalCents),
+                        formatearImporte(mesa.totalCentimos),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,

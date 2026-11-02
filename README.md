@@ -61,7 +61,7 @@ flutter test test/preview_test.dart --dart-define=CAPTURE_UI=true
 flutter build apk --debug --target-platform android-arm64
 ```
 
-La prueba de capturas genera imágenes en `build/previews/`. Las pruebas cubren el flujo desde login hasta envío, permisos de asignación, cierre de mesa, separación de borradores por usuario y pérdida de respuesta con reinicio sin duplicar pedidos.
+La prueba de capturas genera imágenes en `build/previews/`. Las pruebas cubren el flujo desde login hasta envío, permisos de asignación, cierre de mesa, separación de borradores por usuario y pérdida de respuesta con reinicio sin duplicar pedidos. También verifican fallos de almacenamiento, vencimiento de sesión durante un reintento, límites de cantidades, conexiones fuera de plazo y navegación mientras se guarda una asignación.
 
 APK de prueba para celulares Android de 64 bits: `build/app/outputs/flutter-apk/app-debug.apk`. Para incluir también teléfonos de 32 bits y emuladores x86, usa `flutter build apk --debug` cuando tengas disponibles las descargas de esos componentes.
 

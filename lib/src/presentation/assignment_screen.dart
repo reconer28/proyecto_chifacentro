@@ -5,44 +5,47 @@ import '../core/theme.dart';
 import 'widgets.dart';
 
 class AssignmentScreen extends StatefulWidget {
-  const AssignmentScreen({super.key, required this.controller});
-  final AppController controller;
+  const AssignmentScreen({super.key, required this.controlador});
+  final AppController controlador;
   @override
   State<AssignmentScreen> createState() => _AssignmentScreenState();
 }
 
 class _AssignmentScreenState extends State<AssignmentScreen> {
-  late final Set<String> _selected = widget.controller.myTables
-      .map((t) => t.id)
+  late final Set<String> _seleccionadas = widget.controlador.misMesas
+      .map((mesaActual) => mesaActual.id)
       .toSet();
-  final _password = TextEditingController();
-  final _form = GlobalKey<FormState>();
+  final _contrasena = TextEditingController();
+  final _formulario = GlobalKey<FormState>();
   @override
   void dispose() {
-    _password.dispose();
+    _contrasena.dispose();
     super.dispose();
   }
 
-  Future<void> _save() async {
-    if (!_form.currentState!.validate()) {
+  Future<void> _guardar() async {
+    if (!_formulario.currentState!.validate()) {
       return;
     }
-    final ok = await widget.controller.assignTables(
-      _selected.toList(),
-      _password.text,
+    final exito = await widget.controlador.asignarMesas(
+      _seleccionadas.toList(),
+      _contrasena.text,
     );
-    _password.clear();
-    if (ok && mounted) {
-      notifySuccess(context, 'Mesas asignadas a tu turno');
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    _contrasena.clear();
+    if (exito) {
+      mostrarConfirmacion(context, 'Mesas asignadas a tu turno');
       Navigator.pop(context);
     }
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.controller,
-    builder: (context, _) {
-      final c = widget.controller;
+  Widget build(BuildContext contexto) => AnimatedBuilder(
+    animation: widget.controlador,
+    builder: (contexto, _) {
+      final estadoAplicacion = widget.controlador;
       return Scaffold(
         appBar: AppBar(title: const Text('Asignar mesas')),
         body: SafeArea(
@@ -54,64 +57,72 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
                 children: [
                   const Pill(
                     'AUTORIZACIÓN DEL ADMINISTRADOR',
-                    color: ChifaColors.gold,
-                    icon: Icons.admin_panel_settings_outlined,
+                    color: ChifaColors.dorado,
+                    icono: Icons.admin_panel_settings_outlined,
                   ),
                   const SizedBox(height: 20),
                   Text(
                     'Prepara tu turno',
-                    style: Theme.of(context).textTheme.headlineLarge,
+                    style: Theme.of(contexto).textTheme.headlineLarge,
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Selecciona las mesas que atenderás. El administrador confirma la asignación con su clave.',
-                    style: TextStyle(color: ChifaColors.muted, height: 1.5),
+                    style: TextStyle(color: ChifaColors.tenue, height: 1.5),
                   ),
                   const SizedBox(height: 20),
-                  if (c.tables.isEmpty)
+                  if (estadoAplicacion.mesas.isEmpty)
                     const EmptyState(
-                      icon: Icons.cloud_download_outlined,
-                      title: 'Sin mesas descargadas',
-                      message: 'Vuelve al salón y actualiza los datos antes de asignar mesas.',
+                      icono: Icons.cloud_download_outlined,
+                      titulo: 'Sin mesas descargadas',
+                      mensaje: 'Vuelve al salón y actualiza los datos antes de asignar mesas.',
                     ),
-                  ...c.tables.map((t) {
-                    final other =
-                        t.waiterId != null && t.waiterId != c.user!.id;
-                    final locked =
-                        t.waiterId == c.user!.id &&
-                        (t.occupied || c.draftFor(t.id) != null);
+                  ...estadoAplicacion.mesas.map((mesaActual) {
+                    final deOtroMozo =
+                        mesaActual.idMozo != null &&
+                        mesaActual.idMozo != estadoAplicacion.usuario!.id;
+                    final bloqueada =
+                        mesaActual.idMozo == estadoAplicacion.usuario!.id &&
+                        (mesaActual.ocupada ||
+                            estadoAplicacion.borradorDeMesa(mesaActual.id) !=
+                                null);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Paper(
-                        padding: EdgeInsets.zero,
-                        child: CheckboxListTile(
-                          value: _selected.contains(t.id),
-                          onChanged: c.busy || other || locked
+                        relleno: EdgeInsets.zero,
+                        contenido: CheckboxListTile(
+                          value: _seleccionadas.contains(mesaActual.id),
+                          onChanged:
+                              estadoAplicacion.procesando ||
+                                  deOtroMozo ||
+                                  bloqueada
                               ? null
-                              : (v) => setState(() {
-                                  if (v!) {
-                                    _selected.add(t.id);
+                              : (valorActual) => setState(() {
+                                  if (valorActual!) {
+                                    _seleccionadas.add(mesaActual.id);
                                   } else {
-                                    _selected.remove(t.id);
+                                    _seleccionadas.remove(mesaActual.id);
                                   }
                                 }),
                           title: Text(
-                            'Mesa ${t.number.toString().padLeft(2, '0')}',
+                            'Mesa ${mesaActual.numero.toString().padLeft(2, '0')}',
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
-                            other
+                            deOtroMozo
                                 ? 'Asignada a otro mozo'
-                                : locked
+                                : bloqueada
                                 ? 'Con atención o borrador activo'
-                                : '${t.zone} · ${t.seats} personas',
+                                : '${mesaActual.zona} · ${mesaActual.capacidad} personas',
                             style: const TextStyle(fontSize: 12),
                           ),
                           secondary: Icon(
-                            other
+                            deOtroMozo
                                 ? Icons.lock_outline_rounded
                                 : Icons.table_restaurant_outlined,
-                            color: other ? ChifaColors.muted : ChifaColors.gold,
+                            color: deOtroMozo
+                                ? ChifaColors.tenue
+                                : ChifaColors.dorado,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(22),
@@ -122,39 +133,45 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
                   }),
                   const SizedBox(height: 12),
                   Form(
-                    key: _form,
+                    key: _formulario,
                     child: TextFormField(
-                      controller: _password,
+                      controller: _contrasena,
                       obscureText: true,
                       enableSuggestions: false,
                       autocorrect: false,
-                      enabled: !c.busy,
+                      enabled: !estadoAplicacion.procesando,
                       decoration: const InputDecoration(
                         labelText: 'Clave del administrador',
                         prefixIcon: Icon(Icons.lock_outline),
                       ),
-                      validator: (v) => v == null || v.isEmpty
+                      validator: (valorActual) =>
+                          valorActual == null || valorActual.isEmpty
                           ? 'El administrador debe ingresar su clave'
                           : null,
                     ),
                   ),
-                  if (c.isDemo)
+                  if (estadoAplicacion.esDemo)
                     const Padding(
                       padding: EdgeInsets.only(top: 10),
                       child: Text(
                         'Clave de prueba: 2468',
                         style: TextStyle(
                           fontSize: 12,
-                          color: ChifaColors.muted,
+                          color: ChifaColors.tenue,
                         ),
                       ),
                     ),
-                  if (c.error != null) ErrorNotice(c.error!),
+                  if (estadoAplicacion.error != null)
+                    ErrorNotice(estadoAplicacion.error!),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: c.busy || c.tables.isEmpty ? null : _save,
+                    onPressed:
+                        estadoAplicacion.procesando ||
+                            estadoAplicacion.mesas.isEmpty
+                        ? null
+                        : _guardar,
                     icon: const Icon(Icons.check_rounded),
-                    label: Text('Confirmar ${_selected.length} mesas'),
+                    label: Text('Confirmar ${_seleccionadas.length} mesas'),
                   ),
                   const SizedBox(height: 18),
                 ],

@@ -1,53 +1,53 @@
 import 'package:flutter/material.dart';
 
 abstract final class ChifaColors {
-  static const red = Color(0xFFA62F32);
-  static const ink = Color(0xFF28231F);
-  static const muted = Color(0xFF80776F);
-  static const cream = Color(0xFFF8F5EF);
-  static const gold = Color(0xFFC28B3C);
-  static const green = Color(0xFF39705A);
+  static const rojo = Color(0xFFA62F32);
+  static const tinta = Color(0xFF28231F);
+  static const tenue = Color(0xFF80776F);
+  static const crema = Color(0xFFF8F5EF);
+  static const dorado = Color(0xFFC28B3C);
+  static const verde = Color(0xFF39705A);
 }
 
-ThemeData chifaTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: ChifaColors.red,
-    primary: ChifaColors.red,
-    surface: ChifaColors.cream,
+ThemeData crearTemaChifa() {
+  final esquema = ColorScheme.fromSeed(
+    seedColor: ChifaColors.rojo,
+    primary: ChifaColors.rojo,
+    surface: ChifaColors.crema,
   );
   return ThemeData(
     useMaterial3: true,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: ChifaColors.cream,
+    colorScheme: esquema,
+    scaffoldBackgroundColor: ChifaColors.crema,
     fontFamily: 'Roboto',
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
         fontSize: 32,
         fontWeight: FontWeight.w800,
         letterSpacing: -1.1,
-        color: ChifaColors.ink,
+        color: ChifaColors.tinta,
       ),
       headlineMedium: TextStyle(
         fontSize: 27,
         fontWeight: FontWeight.w800,
         letterSpacing: -.7,
-        color: ChifaColors.ink,
+        color: ChifaColors.tinta,
       ),
       titleLarge: TextStyle(
         fontSize: 21,
         fontWeight: FontWeight.w700,
-        color: ChifaColors.ink,
+        color: ChifaColors.tinta,
       ),
       titleMedium: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: ChifaColors.ink,
+        color: ChifaColors.tinta,
       ),
-      bodyMedium: TextStyle(fontSize: 14, color: ChifaColors.ink),
-      bodySmall: TextStyle(fontSize: 12, color: ChifaColors.muted),
+      bodyMedium: TextStyle(fontSize: 14, color: ChifaColors.tinta),
+      bodySmall: TextStyle(fontSize: 12, color: ChifaColors.tenue),
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: ChifaColors.cream,
+      backgroundColor: ChifaColors.crema,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
     ),
@@ -65,7 +65,7 @@ ThemeData chifaTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: ChifaColors.red, width: 1.5),
+        borderSide: const BorderSide(color: ChifaColors.rojo, width: 1.5),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(

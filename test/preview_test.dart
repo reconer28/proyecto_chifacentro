@@ -12,97 +12,108 @@ import 'package:proyecto_chifacentro/src/data/demo_repository.dart';
 import 'package:proyecto_chifacentro/src/data/local_store.dart';
 
 void main() {
-  testWidgets('Capturas de las pantallas principales', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final config = jsonDecode(
+  testWidgets('Capturas de las pantallas principales', (probador) async {
+    await probador.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => probador.binding.setSurfaceSize(null));
+    final configuracion = jsonDecode(
       File('.dart_tool/package_config.json').readAsStringSync(),
     ) as Map;
-    final packages = config['packages'] as List;
-    final root = Uri.parse(
-      '${(packages.firstWhere((p) => p['name'] == 'flutter') as Map)['rootUri']}/',
+    final paquetes = configuracion['packages'] as List;
+    final raiz = Uri.parse(
+      '${(paquetes.firstWhere((paqueteActual) => paqueteActual['name'] == 'flutter') as Map)['rootUri']}/',
     );
-    final fonts = root.resolve('../../bin/cache/artifacts/material_fonts/');
-    for (final entry in {
+    final fuentes = raiz.resolve('../../bin/cache/artifacts/material_fonts/');
+    for (final entradaFuente in {
       'Roboto': ['roboto-regular.ttf', 'roboto-bold.ttf', 'roboto-black.ttf'],
       'MaterialIcons': ['materialicons-regular.otf'],
     }.entries) {
-      final loader = FontLoader(entry.key);
-      for (final file in entry.value) {
-        loader.addFont(
+      final cargador = FontLoader(entradaFuente.key);
+      for (final archivo in entradaFuente.value) {
+        cargador.addFont(
           Future.value(
             ByteData.sublistView(
-              File.fromUri(fonts.resolve(file)).readAsBytesSync(),
+              File.fromUri(fuentes.resolve(archivo)).readAsBytesSync(),
             ),
           ),
         );
       }
-      await loader.load();
+      await cargador.load();
     }
-    final store = MemoryStore();
-    final c = AppController(
-      repository: DemoRepository(store: store, delay: Duration.zero),
-      store: store,
+    final almacenamiento = MemoryStore();
+    final estadoAplicacion = AppController(
+      repositorio: DemoRepository(
+        almacenamiento: almacenamiento,
+        demora: Duration.zero,
+      ),
+      almacenamiento: almacenamiento,
     );
-    addTearDown(c.dispose);
-    const key = ValueKey('capture');
-    Future<void> capture(String name) async {
-      await tester.pumpAndSettle();
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        find.byKey(key),
+    addTearDown(estadoAplicacion.dispose);
+    const clave = ValueKey('capture');
+    Future<void> capturar(String nombre) async {
+      await probador.pumpAndSettle();
+      final limite = probador.renderObject<RenderRepaintBoundary>(
+        find.byKey(clave),
       );
-      await tester.runAsync(() async {
-        final image = await boundary.toImage(pixelRatio: 2);
-        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await probador.runAsync(() async {
+        final imagen = await limite.toImage(pixelRatio: 2);
+        final bytes = await imagen.toByteData(format: ui.ImageByteFormat.png);
         await Directory('build/previews').create(recursive: true);
-        await File('build/previews/$name.png')
+        await File('build/previews/$nombre.png')
             .writeAsBytes(bytes!.buffer.asUint8List());
-        image.dispose();
+        imagen.dispose();
       });
-      expect(tester.takeException(), isNull);
+      expect(probador.takeException(), isNull);
     }
 
-    await tester.pumpWidget(
+    await probador.pumpWidget(
       RepaintBoundary(
-        key: key,
-        child: ChifaApp(controller: c),
+        key: clave,
+        child: ChifaApp(controlador: estadoAplicacion),
       ),
     );
-    await capture('01_login');
-    await c.login('mozo', '123456');
-    await c.changeLine('2', c.products[1], delta: 2);
-    await c.sendOrder('2');
-    await c.changeLine(
-      '1',
-      c.products[0],
-      delta: 2,
-      notes: 'Sin cebolla, por favor',
+    await capturar('01_login');
+    await estadoAplicacion.iniciarSesion('mozo', '123456');
+    await estadoAplicacion.modificarDetalle(
+      '2',
+      estadoAplicacion.productos[1],
+      variacion: 2,
     );
-    await c.changeLine('1', c.products[6], delta: 1);
-    await capture('02_mesas');
-    await tester.ensureVisible(find.text('Mesa 01'));
-    await tester.tap(find.text('Mesa 01'));
-    await tester.pumpAndSettle();
-    await capture('03_carta');
-    await tester.tap(find.text('Ver mi pedido'));
-    await tester.pumpAndSettle();
-    await capture('04_pedido');
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cuenta de mesa'));
-    await tester.pumpAndSettle();
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Asignar'));
-    await tester.pumpAndSettle();
-    await capture('05_asignacion');
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Pedidos').last);
-    await tester.pumpAndSettle();
-    await capture('06_pedidos');
-    await tester.tap(find.text('Mi cuenta'));
-    await tester.pumpAndSettle();
-    await capture('07_cuenta');
+    await estadoAplicacion.enviarPedido('2');
+    await estadoAplicacion.modificarDetalle(
+      '1',
+      estadoAplicacion.productos[0],
+      variacion: 2,
+      observaciones: 'Sin cebolla, por favor',
+    );
+    await estadoAplicacion.modificarDetalle(
+      '1',
+      estadoAplicacion.productos[6],
+      variacion: 1,
+    );
+    await capturar('02_mesas');
+    await probador.ensureVisible(find.text('Mesa 01'));
+    await probador.tap(find.text('Mesa 01'));
+    await probador.pumpAndSettle();
+    await capturar('03_carta');
+    await probador.tap(find.text('Ver mi pedido'));
+    await probador.pumpAndSettle();
+    await capturar('04_pedido');
+    await probador.pageBack();
+    await probador.pumpAndSettle();
+    await probador.tap(find.text('Cuenta de mesa'));
+    await probador.pumpAndSettle();
+    await probador.pageBack();
+    await probador.pumpAndSettle();
+    await probador.tap(find.text('Asignar'));
+    await probador.pumpAndSettle();
+    await capturar('05_asignacion');
+    await probador.pageBack();
+    await probador.pumpAndSettle();
+    await probador.tap(find.text('Pedidos').last);
+    await probador.pumpAndSettle();
+    await capturar('06_pedidos');
+    await probador.tap(find.text('Mi cuenta'));
+    await probador.pumpAndSettle();
+    await capturar('07_cuenta');
   }, skip: !const bool.fromEnvironment('CAPTURE_UI'));
 }

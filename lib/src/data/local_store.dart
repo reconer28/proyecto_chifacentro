@@ -1,28 +1,28 @@
 import 'package:flutter/services.dart';
 
 abstract interface class LocalStore {
-  Future<String?> read(String key);
-  Future<void> write(String key, String value);
+  Future<String?> leer(String clave);
+  Future<void> guardar(String clave, String valor);
 }
 
-/// Private Android preferences: drafts and demo data, never credentials.
+/// Almacenamiento privado de Android para borradores y datos de prueba; no guarda credenciales.
 class AndroidLocalStore implements LocalStore {
   const AndroidLocalStore();
-  static const _channel = MethodChannel('chifa_centro/local_store');
+  static const _canal = MethodChannel('chifa_centro/local_store');
   @override
-  Future<String?> read(String key) =>
-      _channel.invokeMethod<String>('read', {'key': key});
+  Future<String?> leer(String clave) =>
+      _canal.invokeMethod<String>('read', {'key': clave});
   @override
-  Future<void> write(String key, String value) =>
-      _channel.invokeMethod<void>('write', {'key': key, 'value': value});
+  Future<void> guardar(String clave, String valor) =>
+      _canal.invokeMethod<void>('write', {'key': clave, 'value': valor});
 }
 
 class MemoryStore implements LocalStore {
-  final Map<String, String> values = {};
+  final Map<String, String> valores = {};
   @override
-  Future<String?> read(String key) async => values[key];
+  Future<String?> leer(String clave) async => valores[clave];
   @override
-  Future<void> write(String key, String value) async {
-    values[key] = value;
+  Future<void> guardar(String clave, String valor) async {
+    valores[clave] = valor;
   }
 }

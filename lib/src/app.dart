@@ -6,18 +6,18 @@ import 'presentation/login_screen.dart';
 import 'presentation/shell.dart';
 
 class ChifaApp extends StatelessWidget {
-  const ChifaApp({super.key, required this.controller});
-  final AppController controller;
+  const ChifaApp({super.key, required this.controlador});
+  final AppController controlador;
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext contexto) => MaterialApp(
     title: 'Chifa Centro',
     debugShowCheckedModeBanner: false,
-    theme: chifaTheme(),
+    theme: crearTemaChifa(),
     home: AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) => controller.user == null
-          ? LoginScreen(controller: controller)
-          : AppShell(controller: controller),
+      animation: controlador,
+      builder: (contexto, _) => controlador.usuario == null
+          ? LoginScreen(controlador: controlador)
+          : AppShell(controlador: controlador),
     ),
   );
 }

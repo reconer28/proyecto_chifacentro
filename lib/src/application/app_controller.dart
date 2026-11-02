@@ -9,276 +9,353 @@ import '../domain/models.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
-    required this.repository,
-    required this.store,
-    this.namespace = 'demo',
+    required this.repositorio,
+    required this.almacenamiento,
+    this.espacioDatos = 'demo',
   });
-  final RestaurantRepository repository;
-  final LocalStore store;
-  final String namespace;
-  Waiter? user;
-  List<DiningTable> tables = [];
-  List<MenuProduct> products = [];
-  List<ServiceOrder> orders = [];
-  final Map<String, OrderDraft> drafts = {};
-  bool busy = false;
+  final RestaurantRepository repositorio;
+  final LocalStore almacenamiento;
+  final String espacioDatos;
+  Waiter? usuario;
+  List<DiningTable> mesas = [];
+  List<MenuProduct> productos = [];
+  List<ServiceOrder> pedidos = [];
+  final Map<String, OrderDraft> borradores = {};
+  bool procesando = false;
   String? error;
-  DateTime? lastUpdated;
-  Future<void> _writes = Future.value();
-  bool get isDemo => repository.isDemo;
-  List<DiningTable> get myTables =>
-      tables.where((t) => t.waiterId == user?.id).toList();
-  List<ServiceOrder> get myOrders =>
-      orders.where((o) => o.waiterId == user?.id).toList();
-  OrderDraft? draftFor(String tableId) => drafts[tableId];
-  String get _draftKey => 'drafts.v1.$namespace.${user!.id}';
-  String _key() =>
+  DateTime? ultimaActualizacion;
+  Future<void> _escrituras = Future.value();
+  bool _borradoresCargados = false;
+  bool get esDemo => repositorio.esDemo;
+  List<DiningTable> get misMesas =>
+      mesas.where((mesaActual) => mesaActual.idMozo == usuario?.id).toList();
+  List<ServiceOrder> get misPedidos => pedidos
+      .where((pedidoActual) => pedidoActual.idMozo == usuario?.id)
+      .toList();
+  OrderDraft? borradorDeMesa(String idMesa) => borradores[idMesa];
+  String get _claveBorradores => 'drafts.v1.$espacioDatos.${usuario!.id}';
+  String _generarClave() =>
       '${DateTime.now().microsecondsSinceEpoch}-${List.generate(16, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
-  String _message(Object e) => e is AppException
-      ? e.message
+  String _obtenerMensaje(Object excepcion) => excepcion is AppException
+      ? excepcion.mensaje
       : 'No se pudo completar la operación. Reintenta; tus pedidos se conservarán.';
-  void clearError() {
+  void limpiarError() {
     error = null;
     notifyListeners();
   }
 
-  Future<void> _persist() {
-    final key = _draftKey;
-    final value = jsonEncode(drafts.values.map((d) => d.toJson()).toList());
-    final next = _writes.then((_) => store.write(key, value));
-    _writes = next.catchError((Object _) {});
-    return next;
-  }
-
-  Future<void> _loadSnapshot() async {
-    final data = await repository.load();
-    tables = data.tables;
-    products = data.products;
-    orders = data.orders;
-    lastUpdated = DateTime.now();
-  }
-
-  Future<bool> _run(Future<void> Function() action) async {
-    if (busy) {
-      return false;
+  Future<void> _cargarBorradores() async {
+    if (_borradoresCargados) {
+      return;
     }
-    busy = true;
-    error = null;
-    notifyListeners();
     try {
-      await action();
-      return true;
-    } catch (e) {
-      error = _message(e);
-      return false;
-    } finally {
-      busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> login(String username, String password) => _run(() async {
-    final authenticated = await repository.login(username.trim(), password);
-    user = authenticated;
-    try {
-      final raw = await store.read(_draftKey);
-      drafts.clear();
-      if (raw != null) {
-        for (final item in jsonDecode(raw) as List) {
-          final d = OrderDraft.fromJson(Map<String, dynamic>.from(item as Map));
-          drafts[d.tableId] = d;
+      final texto = await almacenamiento.leer(_claveBorradores);
+      final recuperados = <String, OrderDraft>{};
+      if (texto != null) {
+        for (final elemento in jsonDecode(texto) as List) {
+          final borrador = OrderDraft.fromJson(
+            Map<String, dynamic>.from(elemento as Map),
+          );
+          recuperados[borrador.idMesa] = borrador;
         }
       }
-      await _loadSnapshot();
-    } catch (e) {
-      // Keep the authenticated session so a failed initial download is retryable.
-      error = _message(e);
-    }
-  });
-  Future<bool> refresh() => _run(_loadSnapshot);
-  Future<void> logout() async {
-    if (busy) {
-      return;
-    }
-    busy = true;
-    error = null;
-    notifyListeners();
-    try {
-      await _persist();
-    } catch (e) {
-      error =
-          'No se pudieron guardar los borradores. Reintenta antes de salir.';
-      busy = false;
-      notifyListeners();
-      return;
-    }
-    try {
-      await repository.logout();
+      borradores
+        ..clear()
+        ..addAll(recuperados);
+      _borradoresCargados = true;
     } catch (_) {
-      /* Local token is cleared by the repository. */
-    }
-    user = null;
-    drafts.clear();
-    tables = [];
-    products = [];
-    orders = [];
-    lastUpdated = null;
-    busy = false;
-    notifyListeners();
-  }
-
-  void _validateTable(String tableId) {
-    if (!myTables.any((t) => t.id == tableId)) {
       throw const AppException(
-        'La mesa ya no está asignada a tu usuario. Actualiza tus mesas.',
-        definitive: true,
+        'No se pudieron recuperar los borradores. Usa Actualizar datos para reintentar; la copia guardada se conserva.',
       );
     }
   }
 
-  Future<bool> changeLine(
-    String tableId,
-    MenuProduct product, {
-    int delta = 0,
-    String? notes,
-  }) => _run(() async {
-    _validateTable(tableId);
-    final d = drafts.putIfAbsent(
-      tableId,
-      () => OrderDraft(tableId: tableId, key: _key()),
+  Future<void> _guardarBorradores() async {
+    await _cargarBorradores();
+    final clave = _claveBorradores;
+    final valor = jsonEncode(
+      borradores.values
+          .map((borradorActual) => borradorActual.toJson())
+          .toList(),
     );
-    if (d.pending) {
+    final siguiente = _escrituras.then(
+      (_) => almacenamiento.guardar(clave, valor),
+    );
+    _escrituras = siguiente.catchError((Object _) {});
+    await siguiente;
+  }
+
+  Future<void> _cargarDatos() async {
+    await _cargarBorradores();
+    final datos = await repositorio.cargar();
+    mesas = datos.mesas;
+    productos = datos.productos;
+    pedidos = datos.pedidos;
+    ultimaActualizacion = DateTime.now();
+  }
+
+  Future<bool> _ejecutar(Future<void> Function() accion) async {
+    if (procesando) {
+      return false;
+    }
+    procesando = true;
+    error = null;
+    notifyListeners();
+    try {
+      await accion();
+      return true;
+    } catch (excepcion) {
+      error = _obtenerMensaje(excepcion);
+      return false;
+    } finally {
+      procesando = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> iniciarSesion(String nombreUsuario, String contrasena) =>
+      _ejecutar(() async {
+        final usuarioAutenticado = await repositorio.iniciarSesion(
+          nombreUsuario.trim(),
+          contrasena,
+        );
+        usuario = usuarioAutenticado;
+        _borradoresCargados = false;
+        borradores.clear();
+        mesas = [];
+        productos = [];
+        pedidos = [];
+        ultimaActualizacion = null;
+        try {
+          await _cargarDatos();
+        } catch (excepcion) {
+          // Conserva la sesión para reintentar si falla la descarga inicial.
+          error = _obtenerMensaje(excepcion);
+        }
+      });
+  Future<bool> actualizarDatos() => _ejecutar(_cargarDatos);
+  Future<void> cerrarSesion() async {
+    if (procesando) {
+      return;
+    }
+    procesando = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _guardarBorradores();
+    } catch (excepcion) {
+      error =
+          'No se pudieron guardar los borradores. Reintenta antes de salir.';
+      procesando = false;
+      notifyListeners();
+      return;
+    }
+    try {
+      await repositorio.cerrarSesion();
+    } catch (_) {
+      /* El repositorio elimina el token de la sesión local. */
+    }
+    usuario = null;
+    _borradoresCargados = false;
+    borradores.clear();
+    mesas = [];
+    productos = [];
+    pedidos = [];
+    ultimaActualizacion = null;
+    procesando = false;
+    notifyListeners();
+  }
+
+  void _validarMesa(String idMesa) {
+    if (!misMesas.any((mesaActual) => mesaActual.id == idMesa)) {
+      throw const AppException(
+        'La mesa ya no está asignada a tu usuario. Actualiza tus mesas.',
+        rechazoDefinitivo: true,
+      );
+    }
+  }
+
+  Future<bool> modificarDetalle(
+    String idMesa,
+    MenuProduct producto, {
+    int variacion = 0,
+    String? observaciones,
+  }) => _ejecutar(() async {
+    await _cargarBorradores();
+    _validarMesa(idMesa);
+    final existente = borradores[idMesa];
+    if (existente?.pendiente ?? false) {
       throw const AppException(
         'Confirma el envío pendiente antes de editar el pedido.',
       );
     }
-    if (!product.available && delta > 0) {
+    if (observaciones != null && observaciones.trim().length > 250) {
+      throw const AppException('La observación admite hasta 250 caracteres.');
+    }
+    if (variacion > 0 &&
+        !productos.any(
+          (actual) => actual.id == producto.id && actual.disponible,
+        )) {
       throw const AppException('Este plato no está disponible.');
     }
-    final i = d.lines.indexWhere((l) => l.productId == product.id);
-    if (i < 0) {
-      if (delta > 0) {
-        d.lines.add(
+    final indice =
+        existente?.detalles.indexWhere(
+          (detalleActual) => detalleActual.idProducto == producto.id,
+        ) ??
+        -1;
+    final cantidad =
+        (indice < 0 ? 0 : existente!.detalles[indice].cantidad) + variacion;
+    if (cantidad > 99) {
+      throw const AppException('El máximo por plato es 99 unidades.');
+    }
+    if (indice < 0 && variacion <= 0) {
+      return;
+    }
+    final borradorActual =
+        existente ?? OrderDraft(idMesa: idMesa, clave: _generarClave());
+    borradores[idMesa] = borradorActual;
+    if (indice < 0) {
+      if (variacion > 0) {
+        borradorActual.detalles.add(
           OrderLine(
-            productId: product.id,
-            name: product.name,
-            priceCents: product.priceCents,
-            quantity: delta,
-            notes: notes?.trim() ?? '',
+            idProducto: producto.id,
+            nombre: producto.nombre,
+            precioCentimos: producto.precioCentimos,
+            cantidad: variacion,
+            observaciones: observaciones?.trim() ?? '',
           ),
         );
       }
     } else {
-      final old = d.lines[i];
-      final quantity = old.quantity + delta;
-      if (quantity > 99) {
-        throw const AppException('El máximo por plato es 99 unidades.');
-      }
-      if (quantity <= 0) {
-        d.lines.removeAt(i);
+      final anterior = borradorActual.detalles[indice];
+      if (cantidad <= 0) {
+        borradorActual.detalles.removeAt(indice);
       } else {
-        d.lines[i] = old.update(quantity: quantity, notes: notes?.trim());
+        borradorActual.detalles[indice] = anterior.actualizar(
+          cantidad: cantidad,
+          observaciones: observaciones?.trim(),
+        );
       }
     }
-    if (d.lines.isEmpty) {
-      drafts.remove(tableId);
+    if (borradorActual.detalles.isEmpty) {
+      borradores.remove(idMesa);
     }
-    await _persist();
+    await _guardarBorradores();
   });
-  Future<bool> discardDraft(String tableId) => _run(() async {
-    if (drafts[tableId]?.pending ?? false) {
+  Future<bool> descartarBorrador(String idMesa) => _ejecutar(() async {
+    await _cargarBorradores();
+    if (borradores[idMesa]?.pendiente ?? false) {
       throw const AppException(
         'Primero confirma el envío pendiente con el servidor.',
       );
     }
-    drafts.remove(tableId);
-    await _persist();
+    borradores.remove(idMesa);
+    await _guardarBorradores();
   });
-  Future<bool> assignTables(List<String> ids, String password) =>
-      _run(() async {
-        if (drafts.values.any(
-          (d) =>
-              d.lines.isNotEmpty &&
-              myTables.any((t) => t.id == d.tableId) &&
-              !ids.contains(d.tableId),
+  Future<bool> asignarMesas(List<String> ids, String contrasena) =>
+      _ejecutar(() async {
+        await _cargarBorradores();
+        if (borradores.values.any(
+          (borradorActual) =>
+              borradorActual.detalles.isNotEmpty &&
+              misMesas.any(
+                (mesaActual) => mesaActual.id == borradorActual.idMesa,
+              ) &&
+              !ids.contains(borradorActual.idMesa),
         )) {
           throw const AppException(
             'Envía o descarta los borradores antes de quitar sus mesas.',
           );
         }
-        await repository.assignTables(ids, password);
-        await _refreshAfterMutation();
+        await repositorio.asignarMesas(ids, contrasena);
+        await _actualizarTrasOperacion();
       });
-  Future<void> _refreshAfterMutation() async {
+  Future<void> _actualizarTrasOperacion() async {
     try {
-      await _loadSnapshot();
-    } catch (e) {
+      await _cargarDatos();
+    } catch (excepcion) {
       error =
-          'La operación se confirmó. No pudimos actualizar la vista: ${_message(e)}';
+          'La operación se confirmó. No pudimos actualizar la vista: ${_obtenerMensaje(excepcion)}';
     }
   }
 
-  Future<bool> sendOrder(String tableId) => _run(() async {
-    final d = drafts[tableId];
-    if (d == null || d.lines.isEmpty) {
+  Future<bool> enviarPedido(String idMesa) => _ejecutar(() async {
+    await _cargarBorradores();
+    final borradorActual = borradores[idMesa];
+    if (borradorActual == null || borradorActual.detalles.isEmpty) {
       throw const AppException('Agrega platos a tu pedido.');
     }
-    // A receipt must remain recoverable even if the table was reassigned.
-    // For pending requests the server checks idempotency before ownership.
-    if (!d.pending) {
-      _validateTable(tableId);
+    // El recibo debe poder recuperarse aunque la mesa cambie de mozo.
+    // En envíos pendientes, el servidor consulta el recibo antes de validar la asignación.
+    if (!borradorActual.pendiente) {
+      _validarMesa(idMesa);
     }
-    d.pending = true;
-    // Persist the exact request identity before any network write.
-    await _persist();
-    ServiceOrder order;
+    final estabaPendiente = borradorActual.pendiente;
+    borradorActual.pendiente = true;
+    // Guarda la clave y el contenido exacto del pedido antes de enviarlo.
     try {
-      order = await repository.sendOrder(d);
-    } on AppException catch (e) {
-      if (e.definitive) {
-        drafts[tableId] = OrderDraft(
-          tableId: tableId,
-          key: _key(),
-          lines: List.of(d.lines),
+      await _guardarBorradores();
+    } catch (_) {
+      // Sin guardar la intención de envío, todavía no se contacta al servidor.
+      borradorActual.pendiente = estabaPendiente;
+      rethrow;
+    }
+    ServiceOrder pedido;
+    try {
+      pedido = await repositorio.enviarPedido(borradorActual);
+    } on AppException catch (excepcion) {
+      if (excepcion.rechazoDefinitivo &&
+          !(estabaPendiente && excepcion.sesionVencida)) {
+        borradores[idMesa] = OrderDraft(
+          idMesa: idMesa,
+          clave: _generarClave(),
+          detalles: List.of(borradorActual.detalles),
         );
-        await _persist();
+        await _guardarBorradores();
       }
       rethrow;
     }
-    drafts.remove(tableId);
-    orders = [order, ...orders.where((o) => o.id != order.id)];
+    borradores.remove(idMesa);
+    pedidos = [
+      pedido,
+      ...pedidos.where((pedidoActual) => pedidoActual.id != pedido.id),
+    ];
     try {
-      await _persist();
+      await _guardarBorradores();
     } catch (_) {
       error = 'Pedido confirmado. No se pudo limpiar la copia local; un reintento conservará su identificador.';
     }
-    await _refreshAfterMutation();
+    await _actualizarTrasOperacion();
   });
-  Future<bool> cancelOrder(String id, String reason, String password) =>
-      _run(() async {
-        await repository.cancelOrder(id, reason, password);
-        await _refreshAfterMutation();
+  Future<bool> anularPedido(String id, String motivo, String contrasena) =>
+      _ejecutar(() async {
+        await repositorio.anularPedido(id, motivo, contrasena);
+        await _actualizarTrasOperacion();
       });
-  Future<bool> deliverOrder(String id) => _run(() async {
-    await repository.deliverOrder(id);
-    await _refreshAfterMutation();
+  Future<bool> entregarPedido(String id) => _ejecutar(() async {
+    await repositorio.entregarPedido(id);
+    await _actualizarTrasOperacion();
   });
-  Future<bool> closeTable(String tableId) => _run(() async {
-    if (drafts[tableId]?.lines.isNotEmpty ?? false) {
+  Future<bool> cerrarMesa(String idMesa) => _ejecutar(() async {
+    await _cargarBorradores();
+    if (borradores[idMesa]?.detalles.isNotEmpty ?? false) {
       throw const AppException(
         'Envía o descarta el borrador antes de cerrar la mesa.',
       );
     }
-    final ids = myOrders
-        .where((o) => o.tableId == tableId && o.closedAt == null)
-        .map((o) => o.id)
+    final ids = misPedidos
+        .where(
+          (pedidoActual) =>
+              pedidoActual.idMesa == idMesa && pedidoActual.fechaCierre == null,
+        )
+        .map((pedidoActual) => pedidoActual.id)
         .toList();
-    await repository.closeTable(tableId, ids);
-    await _refreshAfterMutation();
+    await repositorio.cerrarMesa(idMesa, ids);
+    await _actualizarTrasOperacion();
   });
   @override
   void dispose() {
-    repository.dispose();
+    repositorio.dispose();
     super.dispose();
   }
 }

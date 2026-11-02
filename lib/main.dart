@@ -9,15 +9,17 @@ import 'src/data/local_store.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  const store = AndroidLocalStore();
+  const almacenamiento = AndroidLocalStore();
   runApp(
     ChifaApp(
-      controller: AppController(
-        repository: AppConfig.useMock
-            ? DemoRepository(store: store)
-            : ApiRepository(baseUrl: AppConfig.apiBaseUrl),
-        store: store,
-        namespace: AppConfig.useMock ? 'demo' : 'api.${AppConfig.apiBaseUrl}',
+      controlador: AppController(
+        repositorio: AppConfig.usarDemo
+            ? DemoRepository(almacenamiento: almacenamiento)
+            : ApiRepository(urlBase: AppConfig.urlBaseApi),
+        almacenamiento: almacenamiento,
+        espacioDatos: AppConfig.usarDemo
+            ? 'demo'
+            : 'api.${AppConfig.urlBaseApi}',
       ),
     ),
   );

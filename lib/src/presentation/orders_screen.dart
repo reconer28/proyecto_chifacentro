@@ -7,31 +7,33 @@ import 'review_screen.dart';
 import 'widgets.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key, required this.controller});
-  final AppController controller;
+  const OrdersScreen({super.key, required this.controlador});
+  final AppController controlador;
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  String _filter = 'En atención';
+  String _filtro = 'En atención';
   @override
-  Widget build(BuildContext context) {
-    final c = widget.controller;
-    final orders = c.myOrders
+  Widget build(BuildContext contexto) {
+    final estadoAplicacion = widget.controlador;
+    final pedidos = estadoAplicacion.misPedidos
         .where(
-          (o) => switch (_filter) {
+          (pedidoActual) => switch (_filtro) {
             'En atención' =>
-              o.closedAt == null && o.status != OrderStatus.cancelled,
+              pedidoActual.fechaCierre == null &&
+                  pedidoActual.estado != OrderStatus.cancelled,
             'Finalizados' =>
-              o.closedAt != null || o.status == OrderStatus.cancelled,
+              pedidoActual.fechaCierre != null ||
+                  pedidoActual.estado == OrderStatus.cancelled,
             _ => true,
           },
         )
         .toList();
     return RefreshIndicator(
       onRefresh: () async {
-        await c.refresh();
+        await estadoAplicacion.actualizarDatos();
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -39,57 +41,66 @@ class _OrdersScreenState extends State<OrdersScreen> {
         children: [
           const Pill(
             'CADA PEDIDO CUENTA',
-            color: ChifaColors.gold,
-            icon: Icons.receipt_long_outlined,
+            color: ChifaColors.dorado,
+            icono: Icons.receipt_long_outlined,
           ),
           const SizedBox(height: 16),
-          Text('Mis pedidos', style: Theme.of(context).textTheme.headlineLarge),
+          Text(
+            'Mis pedidos',
+            style: Theme.of(contexto).textTheme.headlineLarge,
+          ),
           const SizedBox(height: 8),
           const Text(
             'Consulta el detalle y acompaña cada atención.',
-            style: TextStyle(color: ChifaColors.muted, fontSize: 13),
+            style: TextStyle(color: ChifaColors.tenue, fontSize: 13),
           ),
           const SizedBox(height: 20),
-          if (c.drafts.isNotEmpty) ...[
+          if (estadoAplicacion.borradores.isNotEmpty) ...[
             Text(
               'Borradores guardados',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(contexto).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
-            ...c.drafts.values.map((d) {
-              final table = c.tables
-                  .where((t) => t.id == d.tableId)
+            ...estadoAplicacion.borradores.values.map((borradorActual) {
+              final mesa = estadoAplicacion.mesas
+                  .where((mesaActual) => mesaActual.id == borradorActual.idMesa)
                   .firstOrNull;
-              final own = table?.waiterId == c.user?.id;
+              final esPropia = mesa?.idMozo == estadoAplicacion.usuario?.id;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Paper(
-                  padding: EdgeInsets.zero,
-                  child: ListTile(
+                  relleno: EdgeInsets.zero,
+                  contenido: ListTile(
                     leading: Icon(
-                      d.pending ? Icons.sync_rounded : Icons.edit_note_rounded,
-                      color: ChifaColors.gold,
+                      borradorActual.pendiente
+                          ? Icons.sync_rounded
+                          : Icons.edit_note_rounded,
+                      color: ChifaColors.dorado,
                     ),
                     title: Text(
-                      'Mesa ${table?.number.toString().padLeft(2, '0') ?? d.tableId}',
+                      'Mesa ${mesa?.numero.toString().padLeft(2, '0') ?? borradorActual.idMesa}',
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: Text(
-                      '${d.quantity} unidades · ${money(d.totalCents)}\n${d.pending
+                      '${borradorActual.cantidad} unidades · ${formatearImporte(borradorActual.totalCentimos)}\n${borradorActual.pendiente
                           ? 'Envío por confirmar'
-                          : own
+                          : esPropia
                           ? 'Continúa tu pedido'
                           : 'Mesa reasignada: puedes descartar el borrador'}',
                       style: const TextStyle(fontSize: 11, height: 1.5),
                     ),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ReviewScreen(controller: c, tableId: d.tableId),
-                      ),
-                    ),
+                    onTap: estadoAplicacion.procesando
+                        ? null
+                        : () => Navigator.push(
+                            contexto,
+                            MaterialPageRoute<void>(
+                              builder: (_) => ReviewScreen(
+                                controlador: estadoAplicacion,
+                                idMesa: borradorActual.idMesa,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
               );
@@ -101,18 +112,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
             child: Row(
               children: ['En atención', 'Finalizados', 'Todos']
                   .map(
-                    (f) => Padding(
+                    (filtroActual) => Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text(f),
-                        selected: _filter == f,
-                        onSelected: (_) => setState(() => _filter = f),
+                        label: Text(filtroActual),
+                        selected: _filtro == filtroActual,
+                        onSelected: (_) =>
+                            setState(() => _filtro = filtroActual),
                         showCheckmark: false,
-                        selectedColor: ChifaColors.ink,
+                        selectedColor: ChifaColors.tinta,
                         labelStyle: TextStyle(
-                          color: _filter == f
+                          color: _filtro == filtroActual
                               ? Colors.white
-                              : ChifaColors.muted,
+                              : ChifaColors.tenue,
                           fontSize: 12,
                         ),
                       ),
@@ -122,16 +134,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          if (orders.isEmpty)
+          if (pedidos.isEmpty)
             const EmptyState(
-              icon: Icons.receipt_long_outlined,
-              title: 'Todo empieza en la mesa',
-              message: 'Los pedidos que envíes aparecerán aquí. Desliza hacia abajo para actualizar su estado.',
+              icono: Icons.receipt_long_outlined,
+              titulo: 'Todo empieza en la mesa',
+              mensaje: 'Los pedidos que envíes aparecerán aquí. Desliza hacia abajo para actualizar su estado.',
             ),
-          ...orders.map(
-            (o) => Padding(
+          ...pedidos.map(
+            (pedidoActual) => Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: OrderCard(order: o, controller: c),
+              child: OrderCard(
+                pedido: pedidoActual,
+                controlador: estadoAplicacion,
+              ),
             ),
           ),
         ],
@@ -143,26 +158,36 @@ class _OrdersScreenState extends State<OrdersScreen> {
 class TableAccount extends StatelessWidget {
   const TableAccount({
     super.key,
-    required this.controller,
-    required this.tableId,
+    required this.controlador,
+    required this.idMesa,
   });
-  final AppController controller;
-  final String tableId;
+  final AppController controlador;
+  final String idMesa;
   @override
-  Widget build(BuildContext context) {
-    final c = controller;
-    final orders = c.myOrders
-        .where((o) => o.tableId == tableId && o.closedAt == null)
+  Widget build(BuildContext contexto) {
+    final estadoAplicacion = controlador;
+    final pedidos = estadoAplicacion.misPedidos
+        .where(
+          (pedidoActual) =>
+              pedidoActual.idMesa == idMesa && pedidoActual.fechaCierre == null,
+        )
         .toList();
-    final active = orders.where((o) => o.status != OrderStatus.cancelled);
-    final total = active.fold<int>(0, (sum, o) => sum + o.totalCents);
-    final canClose =
-        orders.isNotEmpty &&
-        active.every((o) => o.status == OrderStatus.delivered) &&
-        c.draftFor(tableId) == null;
+    final activos = pedidos.where(
+      (pedidoActual) => pedidoActual.estado != OrderStatus.cancelled,
+    );
+    final total = activos.fold<int>(
+      0,
+      (suma, pedidoActual) => suma + pedidoActual.totalCentimos,
+    );
+    final puedeCerrar =
+        pedidos.isNotEmpty &&
+        activos.every(
+          (pedidoActual) => pedidoActual.estado == OrderStatus.delivered,
+        ) &&
+        estadoAplicacion.borradorDeMesa(idMesa) == null;
     return RefreshIndicator(
       onRefresh: () async {
-        await c.refresh();
+        await estadoAplicacion.actualizarDatos();
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -170,13 +195,13 @@ class TableAccount extends StatelessWidget {
         children: [
           Text(
             'La atención de esta mesa',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(contexto).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           const Text(
             'Aquí se agrupan los pedidos de la atención actual.',
             style: TextStyle(
-              color: ChifaColors.muted,
+              color: ChifaColors.tenue,
               height: 1.5,
               fontSize: 12,
             ),
@@ -184,7 +209,7 @@ class TableAccount extends StatelessWidget {
           const SizedBox(height: 20),
           Paper(
             color: const Color(0xFFF0E8DB),
-            child: Row(
+            contenido: Row(
               children: [
                 const Expanded(
                   child: Text(
@@ -193,47 +218,50 @@ class TableAccount extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  money(total),
+                  formatearImporte(total),
                   style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
-                    color: ChifaColors.red,
+                    color: ChifaColors.rojo,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          if (orders.isEmpty)
+          if (pedidos.isEmpty)
             const EmptyState(
-              icon: Icons.restaurant_outlined,
-              title: 'La mesa está lista',
-              message: 'Agrega platos desde la carta y envía el primer pedido.',
+              icono: Icons.restaurant_outlined,
+              titulo: 'La mesa está lista',
+              mensaje: 'Agrega platos desde la carta y envía el primer pedido.',
             ),
-          ...orders.map(
-            (o) => Padding(
+          ...pedidos.map(
+            (pedidoActual) => Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: OrderCard(order: o, controller: c),
+              child: OrderCard(
+                pedido: pedidoActual,
+                controlador: estadoAplicacion,
+              ),
             ),
           ),
-          if (orders.isNotEmpty) ...[
+          if (pedidos.isNotEmpty) ...[
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: c.busy || !canClose
+              onPressed: estadoAplicacion.procesando || !puedeCerrar
                   ? null
                   : () async {
-                      final yes = await confirmAction(
-                        context,
-                        title: '¿Finalizar la atención?',
-                        message:
-                            'El total enviado es ${money(total)}. La mesa quedará disponible para una nueva atención. Esta acción no registra un pago.',
-                        confirm: 'Cerrar mesa',
+                      final autorizado = await confirmarAccion(
+                        contexto,
+                        titulo: '¿Finalizar la atención?',
+                        mensaje:
+                            'El total enviado es ${formatearImporte(total)}. La mesa quedará disponible para una nueva atención. Esta acción no registra un pago.',
+                        confirmar: 'Cerrar mesa',
                       );
-                      if (yes) {
-                        final ok = await c.closeTable(tableId);
-                        if (ok && context.mounted) {
-                          notifySuccess(
-                            context,
+                      if (autorizado) {
+                        final exito = await estadoAplicacion.cerrarMesa(idMesa);
+                        if (exito && contexto.mounted) {
+                          mostrarConfirmacion(
+                            contexto,
                             'Atención finalizada. La mesa está disponible.',
                           );
                         }
@@ -244,13 +272,13 @@ class TableAccount extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              canClose
+              puedeCerrar
                   ? 'La asignación a tu usuario se conserva durante el turno.'
                   : 'Entrega los pedidos y envía o descarta el borrador antes de cerrar.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 11,
-                color: ChifaColors.muted,
+                color: ChifaColors.tenue,
                 height: 1.5,
               ),
             ),
@@ -262,22 +290,23 @@ class TableAccount extends StatelessWidget {
 }
 
 class OrderCard extends StatelessWidget {
-  const OrderCard({super.key, required this.order, required this.controller});
-  final ServiceOrder order;
-  final AppController controller;
-  Color get _color => switch (order.status) {
-    OrderStatus.sent => ChifaColors.gold,
-    OrderStatus.preparing => ChifaColors.red,
-    OrderStatus.ready || OrderStatus.delivered => ChifaColors.green,
-    OrderStatus.cancelled => ChifaColors.muted,
+  const OrderCard({super.key, required this.pedido, required this.controlador});
+  final ServiceOrder pedido;
+  final AppController controlador;
+  Color get _color => switch (pedido.estado) {
+    OrderStatus.sent => ChifaColors.dorado,
+    OrderStatus.preparing => ChifaColors.rojo,
+    OrderStatus.ready || OrderStatus.delivered => ChifaColors.verde,
+    OrderStatus.cancelled => ChifaColors.tenue,
   };
-  Future<void> _cancel(BuildContext context) async {
-    final reason = TextEditingController();
-    final password = TextEditingController();
+  Future<void> _anular(BuildContext contexto) async {
+    final motivo = TextEditingController();
+    final contrasena = TextEditingController();
     final form = GlobalKey<FormState>();
-    final values = await showDialog<(String, String)>(
-      context: context,
-      builder: (context) => AlertDialog(
+    final valores = await mostrarDialogoConCampos<(String, String)>(
+      contexto,
+      campos: [motivo, contrasena],
+      constructor: (contexto) => AlertDialog(
         title: const Text('Anular pedido'),
         content: SingleChildScrollView(
           child: Form(
@@ -291,26 +320,30 @@ class OrderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  controller: reason,
+                  controller: motivo,
                   maxLength: 250,
                   maxLines: 2,
                   decoration: const InputDecoration(
                     labelText: 'Motivo de anulación',
                   ),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Indica el motivo' : null,
+                  validator: (valorActual) =>
+                      valorActual == null || valorActual.trim().isEmpty
+                      ? 'Indica el motivo'
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  controller: password,
+                  controller: contrasena,
                   obscureText: true,
                   enableSuggestions: false,
                   autocorrect: false,
                   decoration: const InputDecoration(
                     labelText: 'Clave del administrador',
                   ),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Ingresa la clave' : null,
+                  validator: (valorActual) =>
+                      valorActual == null || valorActual.isEmpty
+                      ? 'Ingresa la clave'
+                      : null,
                 ),
               ],
             ),
@@ -318,13 +351,13 @@ class OrderCard extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(contexto),
             child: const Text('Volver'),
           ),
           FilledButton(
             onPressed: () {
               if (form.currentState!.validate()) {
-                Navigator.pop(context, (reason.text.trim(), password.text));
+                Navigator.pop(contexto, (motivo.text.trim(), contrasena.text));
               }
             },
             child: const Text('Anular pedido'),
@@ -332,27 +365,28 @@ class OrderCard extends StatelessWidget {
         ],
       ),
     );
-    if (values != null) {
-      final ok = await controller.cancelOrder(order.id, values.$1, values.$2);
-      if (ok && context.mounted) {
-        notifySuccess(context, 'Pedido anulado con autorización');
+    if (valores != null) {
+      final exito = await controlador.anularPedido(
+        pedido.id,
+        valores.$1,
+        valores.$2,
+      );
+      if (exito && contexto.mounted) {
+        mostrarConfirmacion(contexto, 'Pedido anulado con autorización');
       }
     }
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    reason.dispose();
-    password.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final canChange =
-        order.closedAt == null &&
-        order.status != OrderStatus.cancelled &&
-        order.status != OrderStatus.delivered;
+  Widget build(BuildContext contexto) {
+    final puedeModificar =
+        pedido.fechaCierre == null &&
+        pedido.estado != OrderStatus.cancelled &&
+        pedido.estado != OrderStatus.delivered;
     return Paper(
-      padding: EdgeInsets.zero,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      relleno: EdgeInsets.zero,
+      contenido: Theme(
+        data: Theme.of(contexto).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
           childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
@@ -360,7 +394,7 @@ class OrderCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Mesa ${order.tableNumber.toString().padLeft(2, '0')}',
+                  'Mesa ${pedido.numeroMesa.toString().padLeft(2, '0')}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 17,
@@ -368,7 +402,7 @@ class OrderCard extends StatelessWidget {
                 ),
               ),
               Text(
-                money(order.totalCents),
+                formatearImporte(pedido.totalCentimos),
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -382,10 +416,10 @@ class OrderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '#${order.id} · ${order.createdAt.day.toString().padLeft(2, '0')}/${order.createdAt.month.toString().padLeft(2, '0')} · ${TimeOfDay.fromDateTime(order.createdAt).format(context)}',
+                  '#${pedido.id} · ${pedido.fechaCreacion.day.toString().padLeft(2, '0')}/${pedido.fechaCreacion.month.toString().padLeft(2, '0')} · ${TimeOfDay.fromDateTime(pedido.fechaCreacion).format(contexto)}',
                   style: const TextStyle(
                     fontSize: 11,
-                    color: ChifaColors.muted,
+                    color: ChifaColors.tenue,
                   ),
                 ),
                 const SizedBox(height: 9),
@@ -393,9 +427,9 @@ class OrderCard extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    Pill(order.status.label, color: _color),
-                    if (order.closedAt != null)
-                      const Pill('Mesa cerrada', color: ChifaColors.muted),
+                    Pill(pedido.estado.etiqueta, color: _color),
+                    if (pedido.fechaCierre != null)
+                      const Pill('Mesa cerrada', color: ChifaColors.tenue),
                   ],
                 ),
               ],
@@ -403,8 +437,8 @@ class OrderCard extends StatelessWidget {
           ),
           children: [
             const Divider(),
-            ...order.lines.map(
-              (l) => Padding(
+            ...pedido.detalles.map(
+              (detalleActual) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,22 +447,22 @@ class OrderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${l.quantity}×',
+                          '${detalleActual.cantidad}×',
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: ChifaColors.red,
+                            color: ChifaColors.rojo,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            l.name,
+                            detalleActual.nombre,
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          money(l.totalCents),
+                          formatearImporte(detalleActual.totalCentimos),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -436,14 +470,14 @@ class OrderCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (l.notes.isNotEmpty)
+                    if (detalleActual.observaciones.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 5, left: 26),
                         child: Text(
-                          l.notes,
+                          detalleActual.observaciones,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: ChifaColors.muted,
+                            color: ChifaColors.tenue,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -452,42 +486,44 @@ class OrderCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (order.cancellationReason != null)
+            if (pedido.motivoAnulacion != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  'Motivo: ${order.cancellationReason}',
+                  'Motivo: ${pedido.motivoAnulacion}',
                   style: const TextStyle(
-                    color: ChifaColors.muted,
+                    color: ChifaColors.tenue,
                     fontSize: 12,
                   ),
                 ),
               ),
-            if (canChange) ...[
+            if (puedeModificar) ...[
               const Divider(height: 26),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.tonalIcon(
-                  onPressed: controller.busy
+                  onPressed: controlador.procesando
                       ? null
                       : () async {
-                          final yes = await confirmAction(
-                            context,
-                            title: '¿Pedido entregado?',
-                            message: 'Confirma que todos los platos de este pedido ya llegaron a la mesa.',
-                            confirm: 'Marcar entregado',
+                          final autorizado = await confirmarAccion(
+                            contexto,
+                            titulo: '¿Pedido entregado?',
+                            mensaje: 'Confirma que todos los platos de este pedido ya llegaron a la mesa.',
+                            confirmar: 'Marcar entregado',
                           );
-                          if (yes) {
-                            await controller.deliverOrder(order.id);
+                          if (autorizado) {
+                            await controlador.entregarPedido(pedido.id);
                           }
                         },
                   icon: const Icon(Icons.room_service_outlined, size: 19),
                   label: const Text('Marcar como entregado'),
                 ),
               ),
-              if (order.status == OrderStatus.sent)
+              if (pedido.estado == OrderStatus.sent)
                 TextButton.icon(
-                  onPressed: controller.busy ? null : () => _cancel(context),
+                  onPressed: controlador.procesando
+                      ? null
+                      : () => _anular(contexto),
                   icon: const Icon(Icons.block_outlined, size: 16),
                   label: const Text(
                     'Anular con autorización',

@@ -8,14 +8,14 @@ import 'tables_screen.dart';
 import 'widgets.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.controller});
-  final AppController controller;
+  const AppShell({super.key, required this.controlador});
+  final AppController controlador;
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  int _index = 0;
+  int _indice = 0;
   @override
   void initState() {
     super.initState();
@@ -30,30 +30,32 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !widget.controller.busy) {
-      widget.controller.refresh();
+    if (state == AppLifecycleState.resumed && !widget.controlador.procesando) {
+      widget.controlador.actualizarDatos();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final c = widget.controller;
+  Widget build(BuildContext contexto) {
+    final estadoAplicacion = widget.controlador;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 78,
         titleSpacing: 22,
-        title: const Brand(compact: true),
+        title: const Brand(compacta: true),
         actions: [
           IconButton(
-            onPressed: c.busy ? null : c.refresh,
+            onPressed: estadoAplicacion.procesando
+                ? null
+                : estadoAplicacion.actualizarDatos,
             tooltip: 'Actualizar datos',
-            icon: const Icon(Icons.sync_rounded, color: ChifaColors.muted),
+            icon: const Icon(Icons.sync_rounded, color: ChifaColors.tenue),
           ),
           const SizedBox(width: 10),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
-          child: c.busy
+          child: estadoAplicacion.procesando
               ? const LinearProgressIndicator(minHeight: 3)
               : const SizedBox(height: 3),
         ),
@@ -65,7 +67,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             constraints: const BoxConstraints(maxWidth: 840),
             child: Column(
               children: [
-                if (c.isDemo)
+                if (estadoAplicacion.esDemo)
                   Container(
                     width: double.infinity,
                     color: const Color(0xFFF0E7D7),
@@ -78,7 +80,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         Icon(
                           Icons.science_outlined,
                           size: 14,
-                          color: ChifaColors.gold,
+                          color: ChifaColors.dorado,
                         ),
                         SizedBox(width: 7),
                         Expanded(
@@ -87,27 +89,30 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: ChifaColors.muted,
+                              color: ChifaColors.tenue,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                if (c.error != null)
+                if (estadoAplicacion.error != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 150),
                     child: SingleChildScrollView(
-                      child: ErrorNotice(c.error!, onDismiss: c.clearError),
+                      child: ErrorNotice(
+                        estadoAplicacion.error!,
+                        alCerrar: estadoAplicacion.limpiarError,
+                      ),
                     ),
                   ),
                 Expanded(
                   child: IndexedStack(
-                    index: _index,
+                    index: _indice,
                     children: [
-                      TablesScreen(controller: c),
-                      OrdersScreen(controller: c),
-                      AccountScreen(controller: c),
+                      TablesScreen(controlador: estadoAplicacion),
+                      OrdersScreen(controlador: estadoAplicacion),
+                      AccountScreen(controlador: estadoAplicacion),
                     ],
                   ),
                 ),
@@ -117,25 +122,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         ),
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: _indice,
+        onDestinationSelected: (indice) => setState(() => _indice = indice),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.grid_view_outlined),
-            selectedIcon: Icon(Icons.grid_view_rounded, color: ChifaColors.red),
+            selectedIcon: Icon(
+              Icons.grid_view_rounded,
+              color: ChifaColors.rojo,
+            ),
             label: 'Mis mesas',
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(
               Icons.receipt_long_rounded,
-              color: ChifaColors.red,
+              color: ChifaColors.rojo,
             ),
             label: 'Pedidos',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded, color: ChifaColors.red),
+            selectedIcon: Icon(Icons.person_rounded, color: ChifaColors.rojo),
             label: 'Mi cuenta',
           ),
         ],

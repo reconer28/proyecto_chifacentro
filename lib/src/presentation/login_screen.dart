@@ -5,32 +5,32 @@ import '../core/theme.dart';
 import 'widgets.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.controller});
-  final AppController controller;
+  const LoginScreen({super.key, required this.controlador});
+  final AppController controlador;
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _form = GlobalKey<FormState>();
-  final _username = TextEditingController();
-  final _password = TextEditingController();
-  bool _obscure = true;
+  final _formulario = GlobalKey<FormState>();
+  final _nombreUsuario = TextEditingController();
+  final _contrasena = TextEditingController();
+  bool _ocultarContrasena = true;
   @override
   void dispose() {
-    _username.dispose();
-    _password.dispose();
+    _nombreUsuario.dispose();
+    _contrasena.dispose();
     super.dispose();
   }
 
-  void _login() {
-    if (_form.currentState!.validate()) {
-      widget.controller.login(_username.text, _password.text);
+  void _ingresar() {
+    if (_formulario.currentState!.validate()) {
+      widget.controlador.iniciarSesion(_nombreUsuario.text, _contrasena.text);
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext contexto) => Scaffold(
     body: SafeArea(
       child: Center(
         child: SingleChildScrollView(
@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: ChifaColors.red,
+                      color: ChifaColors.rojo,
                       borderRadius: BorderRadius.circular(28),
                     ),
                     child: Row(
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         DishArt(
-                          size: MediaQuery.sizeOf(context).width < 360
+                          tamano: MediaQuery.sizeOf(contexto).width < 360
                               ? 70
                               : 106,
                         ),
@@ -95,58 +95,63 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 30),
                   Text(
                     'Bienvenido al equipo',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: Theme.of(contexto).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Ingresa para comenzar a atender tus mesas.',
-                    style: TextStyle(color: ChifaColors.muted),
+                    style: TextStyle(color: ChifaColors.tenue),
                   ),
                   const SizedBox(height: 24),
                   Form(
-                    key: _form,
+                    key: _formulario,
                     child: AutofillGroup(
                       child: Column(
                         children: [
                           TextFormField(
-                            controller: _username,
-                            enabled: !widget.controller.busy,
+                            controller: _nombreUsuario,
+                            enabled: !widget.controlador.procesando,
                             autofillHints: const [AutofillHints.username],
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Usuario',
                               prefixIcon: Icon(Icons.person_outline_rounded),
                             ),
-                            validator: (v) => v == null || v.trim().isEmpty
+                            validator: (valorActual) =>
+                                valorActual == null ||
+                                    valorActual.trim().isEmpty
                                 ? 'Ingresa tu usuario'
                                 : null,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
-                            controller: _password,
-                            enabled: !widget.controller.busy,
-                            obscureText: _obscure,
+                            controller: _contrasena,
+                            enabled: !widget.controlador.procesando,
+                            obscureText: _ocultarContrasena,
                             autofillHints: const [AutofillHints.password],
-                            onFieldSubmitted: (_) => _login(),
+                            onFieldSubmitted: (_) => _ingresar(),
                             decoration: InputDecoration(
                               labelText: 'Contraseña',
                               prefixIcon: const Icon(
                                 Icons.lock_outline_rounded,
                               ),
                               suffixIcon: IconButton(
-                                onPressed: () =>
-                                    setState(() => _obscure = !_obscure),
-                                tooltip: _obscure
+                                onPressed: () => setState(
+                                  () =>
+                                      _ocultarContrasena = !_ocultarContrasena,
+                                ),
+                                tooltip: _ocultarContrasena
                                     ? 'Mostrar contraseña'
                                     : 'Ocultar contraseña',
                                 icon: Icon(
-                                  _obscure
+                                  _ocultarContrasena
                                       ? Icons.visibility_outlined
                                       : Icons.visibility_off_outlined,
                                 ),
                               ),
                             ),
-                            validator: (v) => v == null || v.isEmpty
+                            validator: (valorActual) =>
+                                valorActual == null || valorActual.isEmpty
                                 ? 'Ingresa tu contraseña'
                                 : null,
                           ),
@@ -154,14 +159,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  if (widget.controller.error != null)
-                    ErrorNotice(widget.controller.error!),
+                  if (widget.controlador.error != null)
+                    ErrorNotice(widget.controlador.error!),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: widget.controller.busy ? null : _login,
-                      icon: widget.controller.busy
+                      onPressed: widget.controlador.procesando
+                          ? null
+                          : _ingresar,
+                      icon: widget.controlador.procesando
                           ? const SizedBox(
                               width: 18,
                               height: 18,
@@ -169,17 +176,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : const Icon(Icons.arrow_forward_rounded),
                       label: Text(
-                        widget.controller.busy
+                        widget.controlador.procesando
                             ? 'Ingresando…'
                             : 'Comenzar mi turno',
                       ),
                     ),
                   ),
-                  if (widget.controller.isDemo) ...[
+                  if (widget.controlador.esDemo) ...[
                     const SizedBox(height: 22),
                     Paper(
                       color: const Color(0xFFF0E9DD),
-                      child: Column(
+                      contenido: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Row(
@@ -187,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Icon(
                                 Icons.science_outlined,
                                 size: 18,
-                                color: ChifaColors.gold,
+                                color: ChifaColors.dorado,
                               ),
                               SizedBox(width: 8),
                               Expanded(
@@ -208,15 +215,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.7,
-                              color: ChifaColors.muted,
+                              color: ChifaColors.tenue,
                             ),
                           ),
                           TextButton(
-                            onPressed: widget.controller.busy
+                            onPressed: widget.controlador.procesando
                                 ? null
                                 : () {
-                                    _username.text = 'mozo';
-                                    _password.text = '123456';
+                                    _nombreUsuario.text = 'mozo';
+                                    _contrasena.text = '123456';
                                   },
                             child: const Text('Usar acceso de prueba'),
                           ),
@@ -231,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontSize: 9,
                         letterSpacing: 1.5,
-                        color: ChifaColors.muted,
+                        color: ChifaColors.tenue,
                       ),
                     ),
                   ),
